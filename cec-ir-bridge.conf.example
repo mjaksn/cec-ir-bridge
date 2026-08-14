@@ -1,0 +1,24 @@
+# Configuration for cec-ir-bridge
+# Installed to /etc/cec-ir-bridge.conf
+# Restart after editing: sudo systemctl restart cec-ir-bridge
+
+# Base URL of the ESP32 IR blaster (no trailing slash)
+ESP32_BASE_URL="http://192.168.1.50"
+
+# Endpoint paths on the ESP32 (edit to match your firmware)
+VOLUME_UP_PATH="/volup"
+VOLUME_DOWN_PATH="/voldown"
+MUTE_PATH="/mute"
+
+# Optional: fire soundbar power IR when the Apple TV sleeps/wakes the
+# system. Leave empty to disable.
+POWER_OFF_PATH=""
+POWER_ON_PATH=""
+
+# Name shown to other devices on the CEC bus
+OSD_NAME="Soundbar"
+
+# CEC engine: "cec-client" (libcec) or "cec-ctl" (kernel CEC API,
+# from v4l-utils). Try cec-client first; switch to cec-ctl if
+# cec-client cannot find the adapter on your OS image.
+ENGINE="cec-client"

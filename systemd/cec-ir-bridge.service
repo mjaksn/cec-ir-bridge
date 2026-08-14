@@ -1,0 +1,14 @@
+[Unit]
+Description=HDMI-CEC audio system to ESP32 IR volume bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cec-ir-bridge
+Restart=always
+RestartSec=5
+# Journal gets stdout/stderr; view with: journalctl -u cec-ir-bridge -f
+
+[Install]
+WantedBy=multi-user.target

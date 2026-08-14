@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# CEC audio-system emulator -> ESP32 IR blaster HTTP bridge
+#
+# Registers on the HDMI-CEC bus as an Audio System (logical address 5).
+# When another device (e.g. an Apple TV driven by the iPhone Remote app)
+# sends CEC volume/mute commands, fires HTTP requests at an ESP32-based
+# IR blaster that transmits the matching soundbar IR codes.
+#
+# Configuration: /etc/cec-ir-bridge.conf
+set -u
+source /etc/cec-ir-bridge.conf
+
+fire() {
+  local path="$1" label="$2"
+  [[ -z "$path" ]] && return 0
+  echo "CEC: ${label} -> ${ESP32_BASE_URL}${path}"
+  curl -fsS -m 2 "${ESP32_BASE_URL}${path}" >/dev/null 2>&1 &
+}
+
+# Wait for the kernel CEC device to appear (TV/HDMI may come up slowly)
+until [[ -e /dev/cec0 ]]; do
+  echo "Waiting for /dev/cec0 ..."
+  sleep 2
+done
+
+if [[ "${ENGINE:-cec-client}" == "cec-ctl" ]]; then
+  # --- Engine B: kernel CEC API via cec-ctl (v4l-utils) ---
+  # Register as an Audio System, then follow bus traffic.
+  cec-ctl -d /dev/cec0 --audio --osd-name "${OSD_NAME:-Soundbar}"
+  stdbuf -oL cec-ctl -d /dev/cec0 --monitor 2>&1 | while IFS= read -r line; do
+    case "$line" in
+      *"ui-cmd: volume-up"*)   fire "$VOLUME_UP_PATH"   "volume up" ;;
+      *"ui-cmd: volume-down"*) fire "$VOLUME_DOWN_PATH" "volume down" ;;
+      *"ui-cmd: mute"*)        fire "$MUTE_PATH"        "mute" ;;
+      *"STANDBY"*)             fire "$POWER_OFF_PATH"   "standby" ;;
+      *"IMAGE_VIEW_ON"*|*"TEXT_VIEW_ON"*)
+                               fire "$POWER_ON_PATH"    "wake" ;;
+    esac
+  done
+else
+  # --- Engine A: libcec via cec-client ---
+  # -t a  : register as Audio System (logical address 5)
+  # -d 8  : TRAFFIC log level, prints raw frames like ">> 05:44:41"
+  #
+  # Frame reference (last bytes of the line):
+  #   :44:41  User Control Pressed, Volume Up
+  #   :44:42  User Control Pressed, Volume Down
+  #   :44:43  User Control Pressed, Mute
+  #   :36     Standby (broadcast when the Apple TV sleeps the system)
+  #   :04     Image View On (a device is waking the TV)
+  stdbuf -oL cec-client -t a -o "${OSD_NAME:-Soundbar}" -d 8 | \
+  while IFS= read -r line; do
+    case "$line" in
+      *">> "*":44:41") fire "$VOLUME_UP_PATH"   "volume up" ;;
+      *">> "*":44:42") fire "$VOLUME_DOWN_PATH" "volume down" ;;
+      *">> "*":44:43") fire "$MUTE_PATH"        "mute" ;;
+      *">> "*":36")    fire "$POWER_OFF_PATH"   "standby" ;;
+      *">> "*":04")    fire "$POWER_ON_PATH"    "wake" ;;
+    esac
+  done
+fi
+
+# If the pipeline ever exits, let systemd restart us
+echo "CEC pipeline exited; service will restart." >&2
+exit 1
