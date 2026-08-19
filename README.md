@@ -67,8 +67,8 @@ Edit `/etc/cec-ir-bridge.conf`:
 | Setting | Default | Purpose |
 |---|---|---|
 | `ESP32_BASE_URL` | (set at install) | Base URL of the IR blaster |
-| `VOLUME_UP_PATH` | `/volup` | Endpoint for volume up IR |
-| `VOLUME_DOWN_PATH` | `/voldown` | Endpoint for volume down IR |
+| `VOLUME_UP_PATH` | `/button/volume_up/press` | Endpoint for volume up IR |
+| `VOLUME_DOWN_PATH` | `/button/volume_down/press` | Endpoint for volume down IR |
 | `MUTE_PATH` | `/mute` | Endpoint for mute IR |
 | `POWER_OFF_PATH` | empty (disabled) | Fired on CEC standby broadcast |
 | `POWER_ON_PATH` | empty (disabled) | Fired on CEC wake (Image/Text View On) |

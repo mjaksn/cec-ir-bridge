@@ -14,7 +14,7 @@ fire() {
   local path="$1" label="$2"
   [[ -z "$path" ]] && return 0
   echo "CEC: ${label} -> ${ESP32_BASE_URL}${path}"
-  curl -fsS -m 2 "${ESP32_BASE_URL}${path}" >/dev/null 2>&1 &
+  curl -fsS -X POST -m 2 "${ESP32_BASE_URL}${path}" >/dev/null 2>&1 &
 }
 
 # Wait for the kernel CEC device to appear (TV/HDMI may come up slowly)
