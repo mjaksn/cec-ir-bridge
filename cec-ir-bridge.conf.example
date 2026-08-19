@@ -6,8 +6,8 @@
 ESP32_BASE_URL="http://192.168.1.50"
 
 # Endpoint paths on the ESP32 (edit to match your firmware)
-VOLUME_UP_PATH="/volup"
-VOLUME_DOWN_PATH="/voldown"
+VOLUME_UP_PATH="/button/volume_up/press"
+VOLUME_DOWN_PATH="/button/volume_down/press"
 MUTE_PATH="/mute"
 
 # Optional: fire soundbar power IR when the Apple TV sleeps/wakes the
