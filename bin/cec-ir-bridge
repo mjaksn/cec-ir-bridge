@@ -6,15 +6,46 @@
 # sends CEC volume/mute commands, fires HTTP requests at an ESP32-based
 # IR blaster that transmits the matching soundbar IR codes.
 #
+# Commands are filtered by initiator (the logical address that sent
+# them), so spurious presses from one device can be ignored while the
+# same command from another device is still honored.
+#
 # Configuration: /etc/cec-ir-bridge.conf
 set -u
 source /etc/cec-ir-bridge.conf
 
+# Logical addresses are always handled here in decimal:
+#   0 = TV, 4/8/11 = playback devices, 5 = audio system, 15 = broadcast
+ignored() {
+  local src="$1" list="$2" entry
+  for entry in ${list//,/ }; do
+    [[ "$src" == "$entry" ]] && return 0
+  done
+  return 1
+}
+
 fire() {
-  local path="$1" label="$2"
+  local path="$1" label="$2" src="$3" ignore_list="${4:-}"
+  if ignored "$src" "$ignore_list"; then
+    echo "CEC: ${label} from initiator ${src} ignored"
+    return 0
+  fi
   [[ -z "$path" ]] && return 0
-  echo "CEC: ${label} -> ${ESP32_BASE_URL}${path}"
-  curl -fsS -X POST -m 2 "${ESP32_BASE_URL}${path}" >/dev/null 2>&1 &
+  echo "CEC: ${label} from initiator ${src} -> ${ESP32_BASE_URL}${path}"
+  curl -fsS -m 2 "${ESP32_BASE_URL}${path}" >/dev/null 2>&1 &
+}
+
+# Dispatch a decoded event. $1 = initiator (decimal), $2 = payload,
+# where payload is the opcode plus operands, colon separated.
+dispatch() {
+  local src="$1" payload="$2"
+  case "$payload" in
+    44:41) fire "$VOLUME_UP_PATH"   "volume up"   "$src" "${VOLUME_IGNORE_INITIATORS:-}" ;;
+    44:42) fire "$VOLUME_DOWN_PATH" "volume down" "$src" "${VOLUME_IGNORE_INITIATORS:-}" ;;
+    44:43) fire "$MUTE_PATH"        "mute"        "$src" "${MUTE_IGNORE_INITIATORS:-}" ;;
+    36)    fire "$POWER_OFF_PATH"   "standby"     "$src" "${POWER_IGNORE_INITIATORS:-}" ;;
+    04|0d) fire "$POWER_ON_PATH"    "wake"        "$src" "${POWER_IGNORE_INITIATORS:-}" ;;
+  esac
 }
 
 # Wait for the kernel CEC device to appear (TV/HDMI may come up slowly)
@@ -25,38 +56,47 @@ done
 
 if [[ "${ENGINE:-cec-client}" == "cec-ctl" ]]; then
   # --- Engine B: kernel CEC API via cec-ctl (v4l-utils) ---
-  # Register as an Audio System, then follow bus traffic.
+  # Register as an Audio System, then follow bus traffic. Monitor output
+  # spans multiple lines: a header naming the initiator and destination,
+  # then indented operands. Track the initiator from the header so it is
+  # known when the operand line arrives.
   cec-ctl -d /dev/cec0 --audio --osd-name "${OSD_NAME:-Soundbar}"
+  src=""
   stdbuf -oL cec-ctl -d /dev/cec0 --monitor 2>&1 | while IFS= read -r line; do
+    # Header lines look like: "Received from TV to Audio System (0 to 5): ..."
+    if [[ "$line" =~ \(([0-9]+)\ to\ ([0-9]+)\) ]]; then
+      src="${BASH_REMATCH[1]}"
+    fi
     case "$line" in
-      *"ui-cmd: volume-up"*)   fire "$VOLUME_UP_PATH"   "volume up" ;;
-      *"ui-cmd: volume-down"*) fire "$VOLUME_DOWN_PATH" "volume down" ;;
-      *"ui-cmd: mute"*)        fire "$MUTE_PATH"        "mute" ;;
-      *"STANDBY"*)             fire "$POWER_OFF_PATH"   "standby" ;;
+      *"ui-cmd: volume-up"*)   dispatch "$src" "44:41" ;;
+      *"ui-cmd: volume-down"*) dispatch "$src" "44:42" ;;
+      *"ui-cmd: mute"*)        dispatch "$src" "44:43" ;;
+      *"STANDBY"*)             dispatch "$src" "36" ;;
       *"IMAGE_VIEW_ON"*|*"TEXT_VIEW_ON"*)
-                               fire "$POWER_ON_PATH"    "wake" ;;
+                               dispatch "$src" "04" ;;
     esac
   done
 else
   # --- Engine A: libcec via cec-client ---
   # -t a  : register as Audio System (logical address 5)
-  # -d 8  : TRAFFIC log level, prints raw frames like ">> 05:44:41"
+  # -d 8  : TRAFFIC log level, prints raw frames like ">> 45:44:41"
   #
-  # Frame reference (last bytes of the line):
-  #   :44:41  User Control Pressed, Volume Up
-  #   :44:42  User Control Pressed, Volume Down
-  #   :44:43  User Control Pressed, Mute
-  #   :36     Standby (broadcast when the Apple TV sleeps the system)
-  #   :04     Image View On (a device is waking the TV)
+  # Frame layout: the first byte is the header, whose high nibble is the
+  # initiator and low nibble the destination. Remaining bytes are the
+  # opcode and its operands.
+  #
+  #   45:44:41  initiator 4 (Apple TV) -> 5: User Control Pressed, Vol Up
+  #   05:44:43  initiator 0 (TV)       -> 5: User Control Pressed, Mute
+  #   0f:36     initiator 0            -> broadcast: Standby
   stdbuf -oL cec-client -t a -o "${OSD_NAME:-Soundbar}" -d 8 | \
   while IFS= read -r line; do
-    case "$line" in
-      *">> "*":44:41") fire "$VOLUME_UP_PATH"   "volume up" ;;
-      *">> "*":44:42") fire "$VOLUME_DOWN_PATH" "volume down" ;;
-      *">> "*":44:43") fire "$MUTE_PATH"        "mute" ;;
-      *">> "*":36")    fire "$POWER_OFF_PATH"   "standby" ;;
-      *">> "*":04")    fire "$POWER_ON_PATH"    "wake" ;;
-    esac
+    [[ "$line" == *">> "* ]] || continue
+    frame="${line##*>> }"
+    frame="${frame%%[[:space:]]*}"
+    # Need at least a header byte plus an opcode
+    [[ "${#frame}" -ge 5 ]] || continue
+    src=$((16#${frame:0:1}))
+    dispatch "$src" "${frame:3}"
   done
 fi
 
