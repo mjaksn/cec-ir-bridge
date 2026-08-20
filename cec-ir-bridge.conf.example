@@ -15,6 +15,18 @@ MUTE_PATH="/button/mute/press"
 POWER_OFF_PATH=""
 POWER_ON_PATH=""
 
+# Ignore commands sent by specific initiators (the logical address that
+# sent the frame), given in decimal, comma or space separated:
+#   0 = TV, 4/8/11 = playback devices (Apple TV etc.), 5 = audio system
+#
+# Some TVs emit a spurious mute when powering off and never send a
+# matching unmute on power on, which leaves an IR soundbar stuck muted.
+# Ignoring mute from the TV fixes that while keeping mute working from
+# the Apple TV. Ignored events are still logged.
+MUTE_IGNORE_INITIATORS="0"
+VOLUME_IGNORE_INITIATORS=""
+POWER_IGNORE_INITIATORS=""
+
 # Name shown to other devices on the CEC bus
 OSD_NAME="Soundbar"
 

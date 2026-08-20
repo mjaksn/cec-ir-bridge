@@ -72,6 +72,9 @@ Edit `/etc/cec-ir-bridge.conf`:
 | `MUTE_PATH` | `/button/mute/press` | Endpoint for mute IR |
 | `POWER_OFF_PATH` | empty (disabled) | Fired on CEC standby broadcast |
 | `POWER_ON_PATH` | empty (disabled) | Fired on CEC wake (Image/Text View On) |
+| `MUTE_IGNORE_INITIATORS` | `0` (the TV) | Initiators whose mute commands are ignored |
+| `VOLUME_IGNORE_INITIATORS` | empty | Initiators whose volume commands are ignored |
+| `POWER_IGNORE_INITIATORS` | empty | Initiators whose power commands are ignored |
 | `OSD_NAME` | `Soundbar` | Name shown to other CEC devices |
 | `ENGINE` | `cec-client` | CEC backend, see below |
 
@@ -80,6 +83,22 @@ Apply changes with `sudo systemctl restart cec-ir-bridge`.
 The optional power paths let the soundbar follow the rest of the system:
 when the Apple TV sleeps everything via CEC, the bridge can fire the
 soundbar's power IR code too.
+
+### Filtering by initiator
+
+Every CEC frame carries the logical address of the device that sent it,
+and the bridge decodes it so commands can be accepted from one device
+and ignored from another. Addresses are given in decimal, comma or space
+separated: `0` is the TV, `4`, `8`, and `11` are playback devices such as
+an Apple TV, and `5` is the audio system.
+
+This exists because some TVs emit a spurious mute when powering off and
+send no matching unmute on power on. Since IR mute is usually a toggle
+and the bridge has no feedback from the soundbar, that stray command
+leaves the soundbar silently muted until someone notices. Ignoring mute
+from the TV (the default) fixes it while keeping mute working from the
+Apple TV. Ignored events still appear in the log, so filtering never
+hides bus activity from you.
 
 ## CEC engines
 
@@ -103,9 +122,11 @@ journalctl -u cec-ir-bridge -f
 ```
 
 Pressing volume in the iPhone Remote app should immediately print a line
-like `CEC: volume up -> http://192.168.1.50/volup`. If nothing appears,
-the Apple TV has not adopted the Pi as its audio system yet; re-toggle
-the Volume Control setting, restart the Apple TV, or inspect the bus:
+like `CEC: volume up from initiator 4 -> http://192.168.1.50/volup`, and
+filtered events print as `CEC: mute from initiator 0 ignored`. If nothing
+appears, the Apple TV has not adopted the Pi as its audio system yet;
+re-toggle the Volume Control setting, restart the Apple TV, or inspect
+the bus:
 
 ```bash
 echo scan | cec-client -s -d 1        # list devices on the CEC bus
