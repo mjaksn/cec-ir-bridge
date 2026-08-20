@@ -25,7 +25,36 @@ apt-get update
 apt-get install -y cec-utils v4l-utils curl
 
 if [[ -f /etc/cec-ir-bridge.conf ]]; then
-  echo "==> Keeping existing /etc/cec-ir-bridge.conf"
+  echo "==> Existing /etc/cec-ir-bridge.conf found, checking for new settings..."
+  # Append any settings present in the example but missing from the
+  # installed config, carrying their explanatory comments across.
+  # Existing values are never modified.
+  NEW_SETTINGS="$(awk -v conffile=/etc/cec-ir-bridge.conf '
+    BEGIN {
+      while ((getline line < conffile) > 0) {
+        if (match(line, /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=/)) {
+          key = line; sub(/=.*/, "", key); gsub(/[[:space:]]/, "", key)
+          have[key] = 1
+        }
+      }
+    }
+    /^[[:space:]]*#/ { comments = comments $0 "\n"; next }
+    /^[[:space:]]*$/ { comments = ""; next }
+    /^[A-Za-z_][A-Za-z0-9_]*=/ {
+      key = $0; sub(/=.*/, "", key)
+      if (!(key in have)) { printf "\n%s%s\n", comments, $0; print key > "/dev/stderr" }
+      comments = ""
+      next
+    }
+    { comments = "" }
+  ' "${REPO_DIR}/cec-ir-bridge.conf.example" 2> >(sed "s/^/    added: /" >&2))"
+
+  if [[ -n "$NEW_SETTINGS" ]]; then
+    printf '%s\n' "$NEW_SETTINGS" >> /etc/cec-ir-bridge.conf
+    echo "    (existing values were left unchanged)"
+  else
+    echo "    No new settings; config is up to date."
+  fi
 else
   ESP32_BASE_URL="${1:-}"
   if [[ -z "$ESP32_BASE_URL" ]]; then
