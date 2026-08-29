@@ -32,7 +32,7 @@ fire() {
   fi
   [[ -z "$path" ]] && return 0
   echo "CEC: ${label} from initiator ${src} -> ${ESP32_BASE_URL}${path}"
-  curl -fsS -m 2 "${ESP32_BASE_URL}${path}" >/dev/null 2>&1 &
+  curl -fsS -X POST -m 2 "${ESP32_BASE_URL}${path}" >/dev/null 2>&1 &
 }
 
 # Dispatch a decoded event. $1 = initiator (decimal), $2 = payload,
