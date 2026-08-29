@@ -1,0 +1,5 @@
+# Everything here runs on a Raspberry Pi, so everything here is LF, whatever
+# the machine it was edited on would rather do. A shell script that reaches
+# the Pi with CRLF line endings fails on its shebang with "bad interpreter",
+# and the systemd unit fails to parse, so this is not a matter of taste.
+* text=auto eol=lf
