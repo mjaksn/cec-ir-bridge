@@ -1,0 +1,12 @@
+Received from Playback Device 1 to Audio System (4 to 5): USER_CONTROL_PRESSED
+	ui-cmd: volume-up
+Received from Playback Device 1 to Audio System (4 to 5): USER_CONTROL_RELEASED
+Received from Playback Device 1 to Audio System (4 to 5): USER_CONTROL_PRESSED
+	ui-cmd: volume-down
+Received from TV to Audio System (0 to 5): USER_CONTROL_PRESSED
+	ui-cmd: mute
+Received from Playback Device 1 to Audio System (4 to 5): USER_CONTROL_PRESSED
+	ui-cmd: mute
+Received from TV to all (0 to 15): STANDBY
+Received from TV to all (0 to 15): IMAGE_VIEW_ON
+Received from Playback Device 1 to all (4 to 15): TEXT_VIEW_ON

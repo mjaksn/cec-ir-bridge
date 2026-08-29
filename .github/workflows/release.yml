@@ -1,0 +1,143 @@
+name: Release
+
+# A tag and nothing else, so cutting a release is always deliberate and
+# always has a version number attached to it.
+#
+# Nothing is published to a package registry: this is a handful of shell
+# scripts for one board, and a release page with a tarball on it is the
+# whole of the distribution. What the workflow is for is making sure the
+# tarball on that page was built from a commit on main, at a version the
+# code agrees with, and described by the changelog section it quotes.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build the archive
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The check below walks the history, and the shallow fetch that
+          # checkout does by default has none to walk.
+          fetch-depth: 0
+      - name: the tag must be on main
+        # A squash merge writes a commit of its own, so a tag put on the
+        # branch before the merge names a commit that never reaches main.
+        # What was published is still fine, but the history stops saying so:
+        # `git describe` on main answers with the release before this one, and
+        # the release reads as though it never happened. Merge first, then tag
+        # the commit that landed.
+        run: |
+          git fetch --no-tags --quiet origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD || {
+            echo "::error::$GITHUB_REF_NAME is not on main; merge first, then tag the commit that landed"
+            exit 1
+          }
+
+      - name: the tag and the version must agree
+        # A tag that disagrees with the version the script reports publishes
+        # something nobody can identify once it is installed. Cheaper to fail
+        # here than to delete a release and cut it again.
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(grep -m1 '^VERSION=' bin/cec-ir-bridge | sed 's/^VERSION="\(.*\)"$/\1/')"
+          reported="$(bin/cec-ir-bridge --version)"
+          echo "tag $tag, VERSION $version, --version says '$reported'"
+          [ "$tag" = "$version" ] || {
+            echo "::error::tag $GITHUB_REF_NAME does not match VERSION $version"
+            exit 1
+          }
+          [ "$reported" = "cec-ir-bridge $tag" ] || {
+            echo "::error::--version reports '$reported', not 'cec-ir-bridge $tag'"
+            exit 1
+          }
+
+      - name: the suite must pass at the tagged commit
+        # CI has already run this on main, and it runs again here rather than
+        # being trusted, because a tag can name any commit on main and not
+        # only the newest one. A minute to be sure the thing being released
+        # is the thing that passed.
+        run: |
+          shellcheck --external-sources --source-path=SCRIPTDIR \
+            bin/cec-ir-bridge install.sh scripts/build.sh \
+            tests/lib.sh tests/run.sh tests/*.test.sh tests/stubs/*
+          shellcheck --shell=bash --exclude=SC2034 cec-ir-bridge.conf.example
+          tests/run.sh
+
+      - name: build the archive
+        run: scripts/build.sh
+
+      - name: install from the archive, not from the repository
+        # The archive is what the release page hands out, so it is what gets
+        # proved here. Staged into a temporary directory with apt-get and
+        # systemctl stubbed, exactly as the suite does it.
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          mkdir -p "$RUNNER_TEMP/unpacked"
+          tar -xzf dist/cec-ir-bridge.tar.gz -C "$RUNNER_TEMP/unpacked"
+          cd "$RUNNER_TEMP/unpacked/cec-ir-bridge-$tag"
+          DESTDIR="$RUNNER_TEMP/staged" \
+            env "PATH=$GITHUB_WORKSPACE/tests/stubs:$PATH" ./install.sh http://esp32.test
+          "$RUNNER_TEMP/staged/usr/local/bin/cec-ir-bridge" --version
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: archive
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: create the GitHub release
+    needs: [build]
+    runs-on: ubuntu-latest
+    # The only job here that writes back to the repository. Kept apart from
+    # the build so that the job doing the work holds no write permission.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: archive
+          path: dist
+
+      - name: the notes come from the changelog
+        # A release page written by hand would be a second account of a
+        # release that CHANGELOG.md already gives, free to drift from it. The
+        # section for the tag is lifted out instead, so there is one account
+        # and the release page quotes it.
+        #
+        # A tag the changelog says nothing about fails here rather than
+        # publishing an empty page, for the reason the version check fails:
+        # cheaper than editing a release after the fact.
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          awk -v h="## [$v]" '
+            index($0,h)==1 {p=1; next}
+            p && (index($0,"## [")==1 || /^\[[0-9]/) {exit}
+            p' CHANGELOG.md > notes.md
+          [ -s notes.md ] || {
+            echo "::error::CHANGELOG.md has no section for $v"
+            exit 1
+          }
+          cat notes.md
+
+      - name: create the release
+        # gh rather than an action, because the runner already has it and the
+        # token it needs is the one the job was given. Nothing new to pin.
+        #
+        # --verify-tag so a typo in a tag name fails rather than quietly
+        # creating the tag it was meant to be checking.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "cec-ir-bridge ${GITHUB_REF_NAME#v}" \
+            --notes-file notes.md \
+            --verify-tag \
+            dist/*.tar.gz

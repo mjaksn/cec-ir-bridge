@@ -1,0 +1,157 @@
+name: CI
+
+# Deliberately not on every push. A branch with no pull request open against
+# it runs nothing, and a merge runs the suite once rather than twice:
+#
+#   pull_request       while a change is up for review, re-running on each
+#                      push to it, so what passed is always the code being
+#                      merged.
+#   push to main       after the merge has happened.
+#   workflow_dispatch  on demand, for a run nobody asked for by pushing.
+#
+# The pull_request trigger is what makes the requirement enforceable, and it
+# is not interchangeable with dispatching by hand. A dispatched run does
+# attach its checks to the branch head commit, but they do not enter the pull
+# request's status check rollup, and the rollup, not the commit, is what a
+# ruleset evaluates.
+#
+# The ruleset on main should require the `gate` job below and nothing else.
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: the version the runner ships
+        # Printed rather than pinned. ShellCheck is preinstalled on the
+        # runner image, which is what keeps this repository's dependency
+        # count at zero, and the price of that is a version that moves when
+        # the image does. Recording it means a run that starts failing for
+        # no other visible reason has an answer in its own log.
+        run: shellcheck --version
+      - name: every script, including the tests
+        # --external-sources so the `source=` directives are followed, which
+        # is how the suites get checked against the functions they call
+        # rather than against a wall of "not following" notices.
+        #
+        # The example config is shell too, and is sourced by the bridge at
+        # startup, so a syntax error in it would be a service that will not
+        # start. It has no shebang, hence --shell.
+        run: |
+          shellcheck --external-sources --source-path=SCRIPTDIR \
+            bin/cec-ir-bridge install.sh scripts/build.sh \
+            tests/lib.sh tests/run.sh tests/*.test.sh tests/stubs/*
+          # SC2034 is off for the example config and only for it. The file is
+          # a list of assignments that something else sources, so every
+          # setting in it is unused as far as ShellCheck can see, and that is
+          # the file doing its job rather than a finding.
+          shellcheck --shell=bash --exclude=SC2034 cec-ir-bridge.conf.example
+
+  test:
+    name: the suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: run it
+        # No CEC adapter, no Raspberry Pi and no ESP32. Both engines are
+        # driven with recorded output, curl is a stub that records the URL
+        # and the method, and the installer runs into a temporary directory
+        # with apt-get and systemctl stubbed. Nothing here opens a socket.
+        run: tests/run.sh
+
+  install:
+    name: the installer, for real
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: install into the runner itself
+        # The suite already runs install.sh against DESTDIR, which proves the
+        # merge logic and nothing about the real paths. This runs it the way
+        # an operator does, as root and into /etc and /usr/local/bin, on a
+        # machine that is thrown away afterwards.
+        #
+        # apt-get is stubbed because the packages are for a Raspberry Pi and
+        # take a minute to install to no purpose; systemctl is stubbed
+        # because the runner has systemd but no CEC adapter, so the unit
+        # would start, fail to find /dev/cec0, and be restarted forever.
+        run: |
+          sudo env "PATH=$PWD/tests/stubs:$PATH" ./install.sh http://esp32.test
+          test -f /etc/cec-ir-bridge.conf
+          test -x /usr/local/bin/cec-ir-bridge
+          test -f /etc/systemd/system/cec-ir-bridge.service
+          grep -q 'ESP32_BASE_URL="http://esp32.test"' /etc/cec-ir-bridge.conf
+      - name: the installed bridge is the one that was built
+        run: |
+          installed="$(/usr/local/bin/cec-ir-bridge --version)"
+          expected="cec-ir-bridge $(grep -m1 '^VERSION=' bin/cec-ir-bridge | sed 's/^VERSION="\(.*\)"$/\1/')"
+          echo "$installed"
+          [ "$installed" = "$expected" ] || {
+            echo "::error::installed $installed, expected $expected"
+            exit 1
+          }
+      - name: the systemd unit is one systemd accepts
+        # systemd-analyze verify parses the unit and checks the directives in
+        # it, which is the closest thing to a compiler this repository has for
+        # that file. It warns that the ExecStart binary is not in the unit's
+        # own path on some runners, so only a hard failure counts.
+        run: systemd-analyze verify /etc/systemd/system/cec-ir-bridge.service
+
+  tarball:
+    name: the release archive builds and installs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: build it
+        run: scripts/build.sh
+      - name: unpack it somewhere else and install from there
+        # From the unpacked archive rather than the repository, because the
+        # archive is what anybody who follows README.md actually receives. A
+        # file left out of the list in scripts/build.sh builds a tarball that
+        # is fine until somebody tries to use it, which is exactly the sort of
+        # thing that goes unnoticed until a release.
+        run: |
+          version="$(grep -m1 '^VERSION=' bin/cec-ir-bridge | sed 's/^VERSION="\(.*\)"$/\1/')"
+          mkdir -p "$RUNNER_TEMP/unpacked"
+          tar -xzf dist/cec-ir-bridge.tar.gz -C "$RUNNER_TEMP/unpacked"
+          # The archive name carries no version so that the download URL in
+          # README.md never has to; the directory inside it does, and that it
+          # is the expected one is part of what this checks.
+          cd "$RUNNER_TEMP/unpacked/cec-ir-bridge-$version"
+          test -x install.sh || { echo "::error::install.sh lost its execute bit"; exit 1; }
+          DESTDIR="$RUNNER_TEMP/staged" \
+            env "PATH=$GITHUB_WORKSPACE/tests/stubs:$PATH" ./install.sh http://esp32.test
+          test -f "$RUNNER_TEMP/staged/etc/cec-ir-bridge.conf"
+          "$RUNNER_TEMP/staged/usr/local/bin/cec-ir-bridge" --version
+
+  gate:
+    name: gate
+    # The single check for branch protection to require. Runs whatever the
+    # others did, so a failure upstream is reported here rather than leaving
+    # the gate skipped and the requirement satisfied by default.
+    if: always()
+    needs: [lint, test, install, tarball]
+    runs-on: ubuntu-latest
+    steps:
+      - name: every job must have succeeded
+        run: |
+          echo "lint    ${{ needs.lint.result }}"
+          echo "test    ${{ needs.test.result }}"
+          echo "install ${{ needs.install.result }}"
+          echo "tarball ${{ needs.tarball.result }}"
+          [ "${{ needs.lint.result }}"    = "success" ] || exit 1
+          [ "${{ needs.test.result }}"    = "success" ] || exit 1
+          [ "${{ needs.install.result }}" = "success" ] || exit 1
+          [ "${{ needs.tarball.result }}" = "success" ] || exit 1

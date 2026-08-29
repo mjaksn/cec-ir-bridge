@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# The installer test has no interest in Debian's package manager and no
+# right to run it. Records the call and succeeds.
+printf 'apt-get %s\n' "$*" >> "${STUB_LOG:-/dev/null}"

@@ -1,5 +1,9 @@
 # cec-ir-bridge
 
+[![CI](https://github.com/mjaksn/cec-ir-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/mjaksn/cec-ir-bridge/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/mjaksn/cec-ir-bridge)](https://github.com/mjaksn/cec-ir-bridge/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/mjaksn/cec-ir-bridge/blob/main/LICENSE)
+
 Control a legacy IR-only soundbar from the Apple TV Remote app on your
 iPhone, without giving up a digital (TOSLINK) audio path.
 
@@ -38,10 +42,21 @@ input, and it needs no connection to the Apple TV or soundbar.
 
 ## Install
 
-On a fresh Raspberry Pi OS Lite (Trixie or Bookworm):
+On a fresh Raspberry Pi OS Lite (Trixie or Bookworm), from the latest
+release:
 
 ```bash
-git clone <this-repo>
+curl -fsSL -o cec-ir-bridge.tar.gz   https://github.com/mjaksn/cec-ir-bridge/releases/latest/download/cec-ir-bridge.tar.gz
+tar -xzf cec-ir-bridge.tar.gz
+cd cec-ir-bridge-*
+sudo ./install.sh http://<esp32-ip-or-hostname>
+```
+
+Or from a clone, which is the same installer against whatever `main`
+currently holds:
+
+```bash
+git clone https://github.com/mjaksn/cec-ir-bridge.git
 cd cec-ir-bridge
 sudo ./install.sh http://<esp32-ip-or-hostname>
 ```
@@ -121,6 +136,13 @@ Watch recognized CEC events and the HTTP calls they trigger:
 journalctl -u cec-ir-bridge -f
 ```
 
+Check which version is installed, which is worth doing before anything
+else if the machine has been through more than one install:
+
+```bash
+cec-ir-bridge --version
+```
+
 Pressing volume in the iPhone Remote app should immediately print a line
 like `CEC: volume up from initiator 4 -> http://192.168.1.50/volup`, and
 filtered events print as `CEC: mute from initiator 0 ignored`. If nothing
@@ -132,6 +154,22 @@ the bus:
 echo scan | cec-client -s -d 1        # list devices on the CEC bus
 cec-ctl -d /dev/cec0                  # kernel view of the adapter
 ```
+
+## Development
+
+```bash
+tests/run.sh          # the whole suite
+scripts/build.sh      # the release tarball, into dist/
+```
+
+The suite needs no CEC adapter, no Raspberry Pi, no ESP32 and no network.
+Both engines are driven from recorded captures, `curl` is replaced by a
+stub that records the URL and the method, and the installer runs into a
+temporary directory with `apt-get` and `systemctl` stubbed. It is safe to
+run on a development machine.
+
+`AGENTS.md` has the rest: what the tooling enforces, and the handful of
+things about CEC and about the installer that are easy to get wrong.
 
 ## Notes and limitations
 
