@@ -10,7 +10,9 @@
 # directory. It is safe to run on the machine you are reading this on.
 set -uo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")"
+# The suites are found relative to this file, so a cd that failed would run
+# whatever happened to match in the current directory instead of nothing.
+cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 filter="${1:-}"
 failed=0
 ran=0

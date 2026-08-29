@@ -1,3 +1,8 @@
+# shellcheck shell=bash
+#
+# Sourced rather than run, so it has no shebang for ShellCheck to infer the
+# shell from, and the directive above says it instead.
+#
 # Assertions, and nothing more. This project has no dependencies, and a
 # test framework would be the first one, so the suites are plain bash and
 # this is the whole of the machinery they share.
