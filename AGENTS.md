@@ -2,9 +2,9 @@
 
 cec-ir-bridge registers a Raspberry Pi on the HDMI-CEC bus as an Audio System, so
 that the volume buttons in the Apple TV Remote app come alive, and turns the CEC
-commands they send into HTTP calls at an ESP32 IR blaster. It is four shell
-scripts and a systemd unit. There is no build step, no package and no runtime
-dependency beyond what `install.sh` installs from apt.
+commands they send into HTTP calls at an ESP32 IR blaster. It is a handful of
+shell scripts and a systemd unit. There is no build step, no package and no
+runtime dependency beyond what `install.sh` installs from apt.
 
 Those are constraints rather than accidents. It runs on a Pi Zero 2 W, it is
 started by systemd before anybody is watching, and the person debugging it at
@@ -45,7 +45,8 @@ than after:
 - **Initiator addresses are decimal everywhere**, and the libcec parser reads
   them out of a hex nibble. `0` is the TV, `4`, `8` and `11` are playback
   devices, `5` is the audio system. Initiator 11 exists as a test case because
-  it is the first one where reading the nibble as decimal would go wrong.
+  its nibble is a letter (`b`), so reading the nibble as decimal rather than
+  hex would go wrong.
 - **Filtering must never be silent.** An ignored command still gets a line in
   the journal. The README promises this and the suite checks it, because a
   filter that hides bus activity makes the next fault harder to find, not
