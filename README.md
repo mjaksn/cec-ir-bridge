@@ -136,6 +136,13 @@ Watch recognized CEC events and the HTTP calls they trigger:
 journalctl -u cec-ir-bridge -f
 ```
 
+Check which version is installed, which is worth doing before anything
+else if the machine has been through more than one install:
+
+```bash
+cec-ir-bridge --version
+```
+
 Pressing volume in the iPhone Remote app should immediately print a line
 like `CEC: volume up from initiator 4 -> http://192.168.1.50/volup`, and
 filtered events print as `CEC: mute from initiator 0 ignored`. If nothing
