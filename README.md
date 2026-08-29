@@ -31,11 +31,11 @@ flowchart LR
     ESP["ESP32<br/>IR blaster"]
     Bar["Soundbar"]
 
-    Phone -->|network| ATV
+    Phone -.->|wireless| ATV
     ATV --- TV
     TV --- Pi
     ATV -.->|"CEC: volume, mute, standby"| Pi
-    Pi -->|"HTTP POST"| ESP
+    Pi -.->|"HTTP POST"| ESP
     ESP -.->|infrared| Bar
     ATV ==>|"TOSLINK, digital audio"| Bar
 
@@ -43,10 +43,13 @@ flowchart LR
     class Pi bridge
 ```
 
-Plain lines are cables. Dotted lines are signals with no cable of their
-own: the CEC frames ride the HDMI wiring, and the IR crosses the room.
-The thick line is the audio, which goes straight from the Apple TV to the
-soundbar and never touches the Pi.
+Solid lines are cables, and there are only two: the HDMI runs that put
+the Pi on the same bus as the Apple TV. Dotted lines have no cable of
+their own, and together they trace the whole control path, from the
+remote over the air, through the CEC frames riding the HDMI wiring, to
+the HTTP call and the infrared across the room. The thick line is the
+audio, on its own optical cable from the Apple TV straight to the
+soundbar, never touching the Pi.
 
 Note what the Pi is not plugged into. It has no connection to the Apple
 TV and none to the soundbar, and it never becomes the active source on
