@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Same reasoning as the apt-get stub: there is no systemd in a staged
+# install, and enabling a unit on the machine running the tests would be
+# a surprising thing for a test to do.
+printf 'systemctl %s\n' "$*" >> "${STUB_LOG:-/dev/null}"

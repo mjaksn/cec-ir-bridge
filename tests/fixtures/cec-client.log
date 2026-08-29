@@ -1,0 +1,13 @@
+DEBUG:   [               1]	Broadcast (F): osd name set to 'Soundbar'
+TRAFFIC: [               2]	<< 45:47:53:6f:75:6e:64:62:61:72
+TRAFFIC: [             120]	>> 45:44:41
+TRAFFIC: [             130]	>> 45:45
+TRAFFIC: [             240]	>> 45:44:42
+TRAFFIC: [             250]	>> 45:45
+NOTICE:  [             300]	device status changed
+TRAFFIC: [             360]	>> 45:44:43
+TRAFFIC: [             480]	>> 05:44:43
+TRAFFIC: [             500]	>> 0f:36
+TRAFFIC: [             620]	>> 0f:04
+TRAFFIC: [             700]	>> 85
+TRAFFIC: [             760]	>> b5:44:41

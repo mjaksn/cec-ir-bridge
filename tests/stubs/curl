@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Records what it was asked to fetch instead of fetching it, so a test can
+# assert which endpoint the bridge fired and with which method. The bridge
+# passes flags first and the URL last.
+#
+# The method matters: ESPHome's /button/<id>/press endpoints answer 405 to
+# a GET, so a change that dropped -X POST would leave every press silently
+# failing against the paths the example config ships.
+method="GET"
+prev=""
+for arg in "$@"; do
+  [ "$prev" = "-X" ] && method="$arg"
+  prev="$arg"
+done
+printf '%s %s\n' "$method" "${!#}" >> "$CURL_LOG"
