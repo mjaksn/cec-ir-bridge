@@ -60,9 +60,31 @@ lacks "$got" "Soundbar" "an outgoing << frame is not read as an event"
 is "$(printf '%s\n' "$got" | grep -c 'volume_up')" "2" \
   "a hex initiator nibble above 9 is decoded, not dropped"
 
-# Two short lines that must not be mistaken for frames.
-is "$(printf '>> 85\nDEBUG: nothing\n' | { parse_cec_client > /dev/null; })" "" \
-  "a frame too short to hold an opcode is skipped"
+# Two short lines that must not be mistaken for frames. Asserted through
+# the call log rather than through stdout: the parser's own logging is
+# discarded, so a substitution around it would be empty either way and the
+# assertion could never fail.
+CURL_LOG="$(mktemp)"
+export CURL_LOG
+# A here-string rather than a pipe, so the parser runs in this shell and the
+# calls it backgrounds are ones `wait` can actually wait for.
+#
+# Both halves are asserted, and the stderr half is the one with teeth. A
+# short frame fires nothing whether or not the length guard is there, since
+# there are no operand bytes left to dispatch on. An empty one is different:
+# without the guard the initiator nibble is read out of an empty string and
+# $((16#)) is an arithmetic error, so the service starts logging failures on
+# every truncated line libcec prints.
+# Built with printf rather than written out, because the empty-frame line is
+# ">> " and it is the trailing space that gets it past the first guard and
+# into the arithmetic. An editor that trims trailing whitespace would
+# otherwise quietly turn this back into a test of nothing.
+short_err="$( { parse_cec_client > /dev/null; } 2>&1 \
+  <<< "$(printf '>> 85\n>> \nDEBUG: nothing\n')" )"
+wait
+is "$(cat "$CURL_LOG")" "" "a frame too short to hold an opcode fires nothing"
+is "$short_err" "" "and is skipped without an arithmetic error"
+rm -f "$CURL_LOG"
 
 echo "cec-ctl (kernel CEC monitor)"
 

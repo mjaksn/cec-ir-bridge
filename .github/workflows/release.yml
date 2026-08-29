@@ -63,9 +63,10 @@ jobs:
         # only the newest one. A minute to be sure the thing being released
         # is the thing that passed.
         run: |
-          shellcheck --external-sources \
+          shellcheck --external-sources --source-path=SCRIPTDIR \
             bin/cec-ir-bridge install.sh scripts/build.sh \
             tests/lib.sh tests/run.sh tests/*.test.sh tests/stubs/*
+          shellcheck --shell=bash --exclude=SC2034 cec-ir-bridge.conf.example
           tests/run.sh
 
       - name: build the archive

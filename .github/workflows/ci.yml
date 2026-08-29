@@ -51,10 +51,14 @@ jobs:
         # startup, so a syntax error in it would be a service that will not
         # start. It has no shebang, hence --shell.
         run: |
-          shellcheck --external-sources \
+          shellcheck --external-sources --source-path=SCRIPTDIR \
             bin/cec-ir-bridge install.sh scripts/build.sh \
             tests/lib.sh tests/run.sh tests/*.test.sh tests/stubs/*
-          shellcheck --shell=bash cec-ir-bridge.conf.example
+          # SC2034 is off for the example config and only for it. The file is
+          # a list of assignments that something else sources, so every
+          # setting in it is unused as far as ShellCheck can see, and that is
+          # the file doing its job rather than a finding.
+          shellcheck --shell=bash --exclude=SC2034 cec-ir-bridge.conf.example
 
   test:
     name: the suite
