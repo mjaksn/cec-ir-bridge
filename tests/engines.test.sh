@@ -54,9 +54,9 @@ is "$(printf '%s
 lacks "$got" "Soundbar" "an outgoing << frame is not read as an event"
 
 # b5:44:41 has initiator 11, which is a playback device and perfectly
-# legitimate. It is here because 11 is the first initiator whose decimal
-# form is two digits, and reading the nibble as decimal rather than hex
-# would silently mistake it for something else.
+# legitimate. It is here because its nibble is a letter, and reading that
+# nibble as decimal rather than hex would silently mistake it for
+# something else.
 is "$(printf '%s\n' "$got" | grep -c 'volume_up')" "2" \
   "a hex initiator nibble above 9 is decoded, not dropped"
 

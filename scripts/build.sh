@@ -7,13 +7,13 @@
 # written down. It names the directory inside the archive but deliberately
 # not the archive itself: an asset whose name never changes is what makes
 # the /releases/latest/download/ URL in README.md work, and that URL is
-# what keeps a version number out of the install instructions. The file list below is the whole of what a release
-# contains: the bridge, the installer, the unit, the example config and
-# the prose. Tests, fixtures and workflows are deliberately not in it,
-# since nothing on a Raspberry Pi has any use for them.
+# what keeps a version number out of the install instructions: they cd
+# into the versioned directory the archive unpacks into instead.
 #
-# The archive unpacks into a directory named for the version, so the
-# install instructions in README.md work as written.
+# The file list below is the whole of what a release contains: the
+# bridge, the installer, the unit, the example config and the prose.
+# Tests, fixtures and workflows are deliberately not in it, since
+# nothing on a Raspberry Pi has any use for them.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

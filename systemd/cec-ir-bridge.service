@@ -1,5 +1,5 @@
 [Unit]
-Description=HDMI-CEC audio system to ESP32 IR volume bridge
+Description=HDMI-CEC volume, mute and power bridge to an ESP32 IR blaster
 After=network-online.target
 Wants=network-online.target
 

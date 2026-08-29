@@ -74,7 +74,7 @@ On a fresh Raspberry Pi OS Lite (Trixie or Bookworm), from the latest
 release:
 
 ```bash
-curl -fsSL -o cec-ir-bridge.tar.gz   https://github.com/mjaksn/cec-ir-bridge/releases/latest/download/cec-ir-bridge.tar.gz
+curl -fsSL -o cec-ir-bridge.tar.gz https://github.com/mjaksn/cec-ir-bridge/releases/latest/download/cec-ir-bridge.tar.gz
 tar -xzf cec-ir-bridge.tar.gz
 cd cec-ir-bridge-*
 sudo ./install.sh http://<esp32-ip-or-hostname>
@@ -92,8 +92,9 @@ sudo ./install.sh http://<esp32-ip-or-hostname>
 The installer:
 
 1. Installs `cec-utils`, `v4l-utils`, and `curl`
-2. Writes `/etc/cec-ir-bridge.conf` (from `cec-ir-bridge.conf.example`,
-   preserved on re-install)
+2. Writes `/etc/cec-ir-bridge.conf` (from `cec-ir-bridge.conf.example`;
+   a re-install keeps every value already in it and only appends
+   settings the example has gained)
 3. Installs the bridge to `/usr/local/bin/cec-ir-bridge`
 4. Installs, enables, and starts the `cec-ir-bridge` systemd service
 
@@ -172,11 +173,11 @@ cec-ir-bridge --version
 ```
 
 Pressing volume in the iPhone Remote app should immediately print a line
-like `CEC: volume up from initiator 4 -> http://192.168.1.50/volup`, and
-filtered events print as `CEC: mute from initiator 0 ignored`. If nothing
-appears, the Apple TV has not adopted the Pi as its audio system yet;
-re-toggle the Volume Control setting, restart the Apple TV, or inspect
-the bus:
+like `CEC: volume up from initiator 4 ->
+http://192.168.1.50/button/volume_up/press`, and filtered events print
+as `CEC: mute from initiator 0 ignored`. If nothing appears, the Apple
+TV has not adopted the Pi as its audio system yet; re-toggle the Volume
+Control setting, restart the Apple TV, or inspect the bus:
 
 ```bash
 echo scan | cec-client -s -d 1        # list devices on the CEC bus

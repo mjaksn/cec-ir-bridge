@@ -49,8 +49,8 @@ over HTTP. Normally started by systemd rather than run by hand:
   journalctl -u cec-ir-bridge -f
 
 Options:
-  --version   print the version and exit
-  --help      print this and exit
+  --version    print the version and exit
+  --help, -h   print this and exit
 
 Settings are read from $CONF_FILE.
 USAGE
