@@ -17,16 +17,44 @@ ESP32-based IR blaster, which transmits the soundbar's IR codes.
 Audio never touches the Pi. It keeps flowing Apple TV -> TOSLINK ->
 soundbar, so there is zero quality loss.
 
+```mermaid
+flowchart LR
+    Phone["iPhone Remote app<br/>or Siri Remote"]
+
+    subgraph bus["HDMI, carrying the CEC bus"]
+        direction LR
+        ATV["Apple TV"]
+        TV["TV"]
+        Pi["Raspberry Pi<br/>cec-ir-bridge<br/>joins as Audio System, address 5"]
+    end
+
+    ESP["ESP32<br/>IR blaster"]
+    Bar["Soundbar"]
+
+    Phone -.->|wireless| ATV
+    ATV --- TV
+    TV --- Pi
+    ATV -.->|"CEC: volume, mute, standby"| Pi
+    Pi -.->|"HTTP POST"| ESP
+    ESP -.->|infrared| Bar
+    ATV ==>|"TOSLINK, digital audio"| Bar
+
+    classDef bridge stroke-width:3px
+    class Pi bridge
 ```
- iPhone Remote app
-        |  (network)
-     Apple TV ----TOSLINK----------------------> Soundbar
-        |  HDMI                                     ^
-        v                                           |  IR
-       TV (CEC bus) <----HDMI---- Raspberry Pi      |
-                                       |            |
-                                       +--HTTP--> ESP32 + IR LED
-```
+
+Solid lines are cables, and there are only two: the HDMI runs that put
+the Pi on the same bus as the Apple TV. Dotted lines have no cable of
+their own, and together they trace the whole control path, from the
+remote over the air, through the CEC frames riding the HDMI wiring, to
+the HTTP call and the infrared across the room. The thick line is the
+audio, on its own optical cable from the Apple TV straight to the
+soundbar, never touching the Pi.
+
+Note what the Pi is not plugged into. It has no connection to the Apple
+TV and none to the soundbar, and it never becomes the active source on
+the TV. It sits on the shared CEC bus, answers to the address an audio
+system would answer to, and turns what it hears there into HTTP.
 
 ## Hardware
 
