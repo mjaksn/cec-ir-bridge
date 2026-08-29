@@ -12,12 +12,57 @@
 #
 # Configuration: /etc/cec-ir-bridge.conf
 set -u
-source /etc/cec-ir-bridge.conf
+
+VERSION="0.1.0"
+
+# Where the configuration is read from. The override exists so the bridge
+# can be pointed at another file without touching /etc; install.sh writes
+# the default path.
+CONF_FILE="${CEC_IR_BRIDGE_CONF:-/etc/cec-ir-bridge.conf}"
+
+# Every setting, with the value it takes when the config says nothing.
+# Named here rather than left to the config file for two reasons: under
+# `set -u` a hand-edited config that dropped a line would otherwise kill
+# the service on the first frame that referenced it, and a reader gets
+# the full list of settings in one place. These must agree with
+# cec-ir-bridge.conf.example, and tests/config.test.sh checks that they do.
+ESP32_BASE_URL=""
+VOLUME_UP_PATH="/button/volume_up/press"
+VOLUME_DOWN_PATH="/button/volume_down/press"
+MUTE_PATH="/button/mute/press"
+POWER_OFF_PATH=""
+POWER_ON_PATH=""
+MUTE_IGNORE_INITIATORS="0"
+VOLUME_IGNORE_INITIATORS=""
+POWER_IGNORE_INITIATORS=""
+OSD_NAME="Soundbar"
+ENGINE="cec-client"
+
+usage() {
+  cat <<USAGE
+cec-ir-bridge $VERSION
+
+Bridges HDMI-CEC volume, mute and power commands to an ESP32 IR blaster
+over HTTP. Normally started by systemd rather than run by hand:
+
+  sudo systemctl restart cec-ir-bridge
+  journalctl -u cec-ir-bridge -f
+
+Options:
+  --version   print the version and exit
+  --help      print this and exit
+
+Settings are read from $CONF_FILE.
+USAGE
+}
 
 # Logical addresses are always handled here in decimal:
 #   0 = TV, 4/8/11 = playback devices, 5 = audio system, 15 = broadcast
 ignored() {
   local src="$1" list="$2" entry
+  # Unquoted on purpose: the list is comma or space separated, and the
+  # word splitting is how it gets parsed.
+  # shellcheck disable=SC2086
   for entry in ${list//,/ }; do
     [[ "$src" == "$entry" ]] && return 0
   done
@@ -40,29 +85,47 @@ fire() {
 dispatch() {
   local src="$1" payload="$2"
   case "$payload" in
-    44:41) fire "$VOLUME_UP_PATH"   "volume up"   "$src" "${VOLUME_IGNORE_INITIATORS:-}" ;;
-    44:42) fire "$VOLUME_DOWN_PATH" "volume down" "$src" "${VOLUME_IGNORE_INITIATORS:-}" ;;
-    44:43) fire "$MUTE_PATH"        "mute"        "$src" "${MUTE_IGNORE_INITIATORS:-}" ;;
-    36)    fire "$POWER_OFF_PATH"   "standby"     "$src" "${POWER_IGNORE_INITIATORS:-}" ;;
-    04|0d) fire "$POWER_ON_PATH"    "wake"        "$src" "${POWER_IGNORE_INITIATORS:-}" ;;
+    44:41) fire "$VOLUME_UP_PATH"   "volume up"   "$src" "$VOLUME_IGNORE_INITIATORS" ;;
+    44:42) fire "$VOLUME_DOWN_PATH" "volume down" "$src" "$VOLUME_IGNORE_INITIATORS" ;;
+    44:43) fire "$MUTE_PATH"        "mute"        "$src" "$MUTE_IGNORE_INITIATORS" ;;
+    36)    fire "$POWER_OFF_PATH"   "standby"     "$src" "$POWER_IGNORE_INITIATORS" ;;
+    04|0d) fire "$POWER_ON_PATH"    "wake"        "$src" "$POWER_IGNORE_INITIATORS" ;;
   esac
 }
 
-# Wait for the kernel CEC device to appear (TV/HDMI may come up slowly)
-until [[ -e /dev/cec0 ]]; do
-  echo "Waiting for /dev/cec0 ..."
-  sleep 2
-done
+# Engine A: read libcec TRAFFIC lines on stdin.
+#
+# Frame layout: the first byte is the header, whose high nibble is the
+# initiator and low nibble the destination. Remaining bytes are the
+# opcode and its operands.
+#
+#   45:44:41  initiator 4 (Apple TV) -> 5: User Control Pressed, Vol Up
+#   05:44:43  initiator 0 (TV)       -> 5: User Control Pressed, Mute
+#   0f:36     initiator 0            -> broadcast: Standby
+#
+# Raw frames are parsed rather than libcec's human-readable log lines,
+# which is deterministic and avoids double-triggering when libcec prints
+# both for one event.
+parse_cec_client() {
+  local line frame src
+  while IFS= read -r line; do
+    [[ "$line" == *">> "* ]] || continue
+    frame="${line##*>> }"
+    frame="${frame%%[[:space:]]*}"
+    # Need at least a header byte plus an opcode
+    [[ "${#frame}" -ge 5 ]] || continue
+    src=$((16#${frame:0:1}))
+    dispatch "$src" "${frame:3}"
+  done
+}
 
-if [[ "${ENGINE:-cec-client}" == "cec-ctl" ]]; then
-  # --- Engine B: kernel CEC API via cec-ctl (v4l-utils) ---
-  # Register as an Audio System, then follow bus traffic. Monitor output
-  # spans multiple lines: a header naming the initiator and destination,
-  # then indented operands. Track the initiator from the header so it is
-  # known when the operand line arrives.
-  cec-ctl -d /dev/cec0 --audio --osd-name "${OSD_NAME:-Soundbar}"
-  src=""
-  stdbuf -oL cec-ctl -d /dev/cec0 --monitor 2>&1 | while IFS= read -r line; do
+# Engine B: read cec-ctl --monitor output on stdin. It spans multiple
+# lines: a header naming the initiator and destination, then indented
+# operands. Track the initiator from the header so it is known when the
+# operand line arrives.
+parse_cec_ctl() {
+  local line src=""
+  while IFS= read -r line; do
     # Header lines look like: "Received from TV to Audio System (0 to 5): ..."
     if [[ "$line" =~ \(([0-9]+)\ to\ ([0-9]+)\) ]]; then
       src="${BASH_REMATCH[1]}"
@@ -76,30 +139,46 @@ if [[ "${ENGINE:-cec-client}" == "cec-ctl" ]]; then
                                dispatch "$src" "04" ;;
     esac
   done
-else
-  # --- Engine A: libcec via cec-client ---
-  # -t a  : register as Audio System (logical address 5)
-  # -d 8  : TRAFFIC log level, prints raw frames like ">> 45:44:41"
-  #
-  # Frame layout: the first byte is the header, whose high nibble is the
-  # initiator and low nibble the destination. Remaining bytes are the
-  # opcode and its operands.
-  #
-  #   45:44:41  initiator 4 (Apple TV) -> 5: User Control Pressed, Vol Up
-  #   05:44:43  initiator 0 (TV)       -> 5: User Control Pressed, Mute
-  #   0f:36     initiator 0            -> broadcast: Standby
-  stdbuf -oL cec-client -t a -o "${OSD_NAME:-Soundbar}" -d 8 | \
-  while IFS= read -r line; do
-    [[ "$line" == *">> "* ]] || continue
-    frame="${line##*>> }"
-    frame="${frame%%[[:space:]]*}"
-    # Need at least a header byte plus an opcode
-    [[ "${#frame}" -ge 5 ]] || continue
-    src=$((16#${frame:0:1}))
-    dispatch "$src" "${frame:3}"
-  done
-fi
+}
 
-# If the pipeline ever exits, let systemd restart us
-echo "CEC pipeline exited; service will restart." >&2
-exit 1
+main() {
+  case "${1:-}" in
+    --version) echo "cec-ir-bridge $VERSION"; return 0 ;;
+    --help|-h) usage; return 0 ;;
+    "") ;;
+    *) echo "Unknown option: $1" >&2; usage >&2; return 2 ;;
+  esac
+
+  # shellcheck source=/dev/null
+  source "$CONF_FILE"
+
+  # Wait for the kernel CEC device to appear (TV/HDMI may come up slowly)
+  until [[ -e /dev/cec0 ]]; do
+    echo "Waiting for /dev/cec0 ..."
+    sleep 2
+  done
+
+  if [[ "$ENGINE" == "cec-ctl" ]]; then
+    # --- Engine B: kernel CEC API via cec-ctl (v4l-utils) ---
+    # Register as an Audio System, then follow bus traffic.
+    cec-ctl -d /dev/cec0 --audio --osd-name "$OSD_NAME"
+    stdbuf -oL cec-ctl -d /dev/cec0 --monitor 2>&1 | parse_cec_ctl
+  else
+    # --- Engine A: libcec via cec-client ---
+    # -t a  : register as Audio System (logical address 5)
+    # -d 8  : TRAFFIC log level, prints raw frames like ">> 45:44:41"
+    stdbuf -oL cec-client -t a -o "$OSD_NAME" -d 8 | parse_cec_client
+  fi
+
+  # If the pipeline ever exits, let systemd restart us
+  echo "CEC pipeline exited; service will restart." >&2
+  return 1
+}
+
+# Executed, this runs the bridge. Sourced, as the test suite does, it
+# defines the functions above and stops, so the frame parsing can be
+# driven with recorded output instead of a CEC adapter.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+  exit $?
+fi
