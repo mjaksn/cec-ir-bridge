@@ -8,6 +8,44 @@ The release workflow lifts the section matching a pushed tag out of this file
 and publishes it as the release notes, so a version with no section here does
 not get a release page.
 
+## [0.1.1] - 2026-08-29
+
+Documentation only. The bridge, the installer and the unit behave exactly as
+they did in 0.1.0, and nothing already running has a reason to move for it.
+The reason it is a release at all is that the tarball on the release page is
+how this gets installed, so a correction to the README reaches nobody until a
+tag ships one.
+
+### Fixed
+
+- **The example log line named an endpoint that no longer exists.** The
+  debugging section showed `http://192.168.1.50/volup`, which stopped being a
+  default before 0.1.0 shipped. Anybody comparing their journal against it
+  would have concluded something was wrong when nothing was.
+- **The re-install note undersold what the installer does.** It said an
+  existing config was preserved, which is true and incomplete: settings the
+  example has gained since are appended, with their comments, and it is the
+  values already in the file that are left alone.
+- **The reason initiator 11 is a test case was wrong**, in `AGENTS.md` and in
+  `tests/engines.test.sh` both. It is there because its nibble is a letter,
+  `b`, not because it is the first initiator that reading as decimal would
+  misread. That would be 10.
+- **`AGENTS.md` counted four shell scripts** where the repository holds
+  twelve.
+
+### Changed
+
+- **The architecture diagram is Mermaid** rather than ASCII art, so GitHub
+  draws it. Line style carries meaning now, and a legend says what: cables
+  solid, the audio thick, and anything without a cable of its own dotted,
+  which turns out to be the whole control path from the remote to the
+  soundbar.
+- **`--help` names the `-h` alias** it has accepted since 0.1.0 without
+  mentioning.
+- **The systemd unit says what it actually bridges.** The description named
+  volume alone, though mute and power were handled in 0.1.0 too, so
+  `systemctl status` now reports the full set.
+
 ## [0.1.0] - 2026-08-29
 
 The first tagged release. The bridge itself has been working for a while; what
@@ -57,4 +95,5 @@ rather than a clone of whatever `main` happened to be.
   that a recorded capture can be piped through them, which is what the tests
   do.
 
+[0.1.1]: https://github.com/mjaksn/cec-ir-bridge/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mjaksn/cec-ir-bridge/releases/tag/v0.1.0
