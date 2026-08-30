@@ -13,7 +13,7 @@
 # Configuration: /etc/cec-ir-bridge.conf
 set -u
 
-VERSION="0.1.0"
+VERSION="0.1.1"
 
 # Where the configuration is read from. The override exists so the bridge
 # can be pointed at another file without touching /etc; install.sh writes
