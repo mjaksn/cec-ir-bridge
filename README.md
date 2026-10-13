@@ -193,6 +193,29 @@ echo scan | cec-client -s -d 1        # list devices on the CEC bus
 cec-ctl -d /dev/cec0                  # kernel view of the adapter
 ```
 
+The journal shows only the events the bridge recognises. To see every
+frame addressed to the Pi, decoded, run this alongside the service. It
+only listens, so the bridge keeps working while it runs:
+
+```bash
+sudo cec-ctl -d /dev/cec0 --monitor
+```
+
+A volume press from the Apple TV shows up as a frame from `(4 to 5)`
+carrying `ui-cmd: volume-up`. If nothing arrives there, the Apple TV is
+not sending to the audio system address, and the problem is upstream of
+the bridge.
+
+To see the raw frames exactly as the default engine reads them, stop the
+service first, since only one `cec-client` can hold the adapter, then
+run the same command the bridge does and press Ctrl+C when finished:
+
+```bash
+sudo systemctl stop cec-ir-bridge
+cec-client -t a -o Soundbar -d 8      # prints frames like >> 45:44:41
+sudo systemctl start cec-ir-bridge
+```
+
 ## Development
 
 ```bash
