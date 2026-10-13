@@ -10,8 +10,8 @@ not get a release page.
 
 ## [0.1.2] - 2026-10-12
 
-The installer now edits the Pi's boot `config.txt`, which is the first time
-it has touched anything outside its own files. Re-running it over 0.1.1 adds
+The installer now edits the Pi's boot `config.txt`, the first file it changes
+that it did not create itself. Re-running it over 0.1.1 adds
 the one line described below and then asks for a reboot; a config that
 already sets the line is left as it is.
 
