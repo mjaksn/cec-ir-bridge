@@ -8,7 +8,12 @@ The release workflow lifts the section matching a pushed tag out of this file
 and publishes it as the release notes, so a version with no section here does
 not get a release page.
 
-## [Unreleased]
+## [0.1.2] - 2026-10-12
+
+The installer now edits the Pi's boot `config.txt`, which is the first time
+it has touched anything outside its own files. Re-running it over 0.1.1 adds
+the one line described below and then asks for a reboot; a config that
+already sets the line is left as it is.
 
 ### Added
 
@@ -125,5 +130,6 @@ rather than a clone of whatever `main` happened to be.
   that a recorded capture can be piped through them, which is what the tests
   do.
 
+[0.1.2]: https://github.com/mjaksn/cec-ir-bridge/releases/tag/v0.1.2
 [0.1.1]: https://github.com/mjaksn/cec-ir-bridge/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mjaksn/cec-ir-bridge/releases/tag/v0.1.0
