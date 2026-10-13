@@ -8,6 +8,21 @@ The release workflow lifts the section matching a pushed tag out of this file
 and publishes it as the release notes, so a version with no section here does
 not get a release page.
 
+## [Unreleased]
+
+### Added
+
+- **Rebooting the Pi no longer switches the TV to its input.** The boot
+  firmware announced the Pi as the active source on CEC before the bridge was
+  even running, and a TV obeys that by changing input. The installer now adds
+  `hdmi_ignore_cec_init=1` to `/boot/firmware/config.txt` (or `/boot/config.txt`
+  on older images), which stops that one message and leaves CEC working. It
+  needs one reboot. A line already in the file is left alone whatever its
+  value, so `hdmi_ignore_cec_init=0` keeps the old behaviour across re-installs.
+- **The README covers the Pi 2 B,** which needs the 32-bit image and, having
+  no Wi-Fi, Ethernet or a dongle to reach the ESP32. It also gives the commands
+  for watching raw CEC traffic.
+
 ## [0.1.1] - 2026-08-29
 
 Documentation only. The bridge, the installer and the unit behave exactly as

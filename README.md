@@ -105,7 +105,18 @@ The installer:
    a re-install keeps every value already in it and only appends
    settings the example has gained)
 3. Installs the bridge to `/usr/local/bin/cec-ir-bridge`
-4. Installs, enables, and starts the `cec-ir-bridge` systemd service
+4. Adds `hdmi_ignore_cec_init=1` to `/boot/firmware/config.txt` (or
+   `/boot/config.txt` on older images), unless that file already sets it
+5. Installs, enables, and starts the `cec-ir-bridge` systemd service
+
+Step 4 stops the Pi's boot firmware from announcing itself as the active
+source on CEC, which would otherwise switch the TV to the Pi's input
+every time the Pi boots. CEC stays on, so the bridge is unaffected. It
+takes effect after one reboot. A line already in the file is left as it
+is, whatever its value, so `hdmi_ignore_cec_init=0` keeps the switching
+and survives a re-install. If the TV still switches after the reboot, it
+is following the HDMI signal by itself; look for an automatic input
+switching setting on the TV.
 
 Then on the Apple TV: **Settings -> Remotes and Devices -> Volume
 Control -> Auto**. Toggle the setting or restart the Apple TV once so it
@@ -244,5 +255,6 @@ things about CEC and about the installer that are easy to get wrong.
   soundbar itself is the source of truth.
 - TV CEC implementations are quirky. If the TV pops up an "audio system
   connected" notification or changes its speaker routing, check its
-  audio/CEC settings. The Pi never declares itself an active source, so
-  it should not steal the screen.
+  audio/CEC settings. The bridge never declares itself an active
+  source, and with `hdmi_ignore_cec_init=1` (see Install) neither does
+  the Pi's boot firmware, so it should not steal the screen.

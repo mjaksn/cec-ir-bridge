@@ -15,7 +15,7 @@ eleven at night has `journalctl` and nothing else.
 | Path | What it is |
 | --- | --- |
 | `bin/cec-ir-bridge` | The bridge. Parses CEC frames, filters by initiator, fires HTTP. |
-| `install.sh` | Installs the above, the unit and the config. Safe to re-run. |
+| `install.sh` | Installs the above, the unit and the config, and sets `hdmi_ignore_cec_init` in the boot `config.txt`. Safe to re-run. |
 | `cec-ir-bridge.conf.example` | The config an operator edits, installed to `/etc`. |
 | `systemd/cec-ir-bridge.service` | The unit. |
 | `scripts/build.sh` | Builds the release tarball. One file list, used by CI and the release. |
@@ -54,7 +54,11 @@ than after:
 - **`install.sh` never touches a value an operator has set.** Re-running it
   appends settings the example has gained, with their comments, and nothing
   else. That merge is the least obvious code here and
-  `tests/install.test.sh` is mostly about it.
+  `tests/install.test.sh` is mostly about it. The same holds for the boot
+  `config.txt`: `hdmi_ignore_cec_init=1` is added only when the file has no
+  such line, under its own `[all]` header, and a machine with no
+  `config.txt` at all, such as a CI runner, skips the step rather than
+  failing.
 - **Both engines must agree.** `cec-client` and `cec-ctl` are two ways of
   reading the same bus, and a change to how one decodes an event belongs in the
   other. The suite drives both from recorded output and asserts that one volume
