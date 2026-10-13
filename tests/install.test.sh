@@ -184,4 +184,20 @@ is "$( ( cd "$ROOT" && DESTDIR="$FRESH" STUB_LOG=/dev/null ./install.sh "ftp://n
   "on a first install a URL with no http scheme is refused"
 rm -rf "$FRESH"
 
+# The mistake that prompted the check's position: an address typed without
+# its scheme. It used to be caught after apt had run, leaving the packages
+# installed and nothing else, with the error lost in apt's output.
+FRESH="$(mktemp -d)"
+( cd "$ROOT" && DESTDIR="$FRESH" STUB_LOG="$FRESH/stubs.log" ./install.sh "192.168.1.50" ) \
+  > "$FRESH/out.log" 2>&1
+status=$?
+is "$status" "1" "a bare address with no http:// is refused"
+lacks "$(cat "$FRESH/stubs.log" 2>/dev/null)" "apt-get" \
+  "before apt-get runs"
+is "$(find "$FRESH" -path "$FRESH/etc/*" -o -path "$FRESH/usr/*" | head -1)" "" \
+  "and before anything is written"
+contains "$(cat "$FRESH/out.log")" "Nothing has been installed" \
+  "and the error says so"
+rm -rf "$FRESH"
+
 summary

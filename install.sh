@@ -63,6 +63,28 @@ merge_new_settings() {
   ' "$example"
 }
 
+ESP32_URL=""
+
+# Settle the ESP32 URL before anything is installed. Checked any later, a
+# URL typed without its http:// fails after a minute of apt output, with
+# the packages installed, nothing else, and the one line saying why easy
+# to miss. A re-install never reads the argument, because the configured
+# URL is one of the values it leaves alone.
+resolve_url() {
+  [[ -f "$CONF_FILE" ]] && return 0
+
+  local url="${1:-}"
+  if [[ -z "$url" ]]; then
+    read -rp "ESP32 base URL (e.g. http://192.168.1.50): " url
+  fi
+  if [[ ! "$url" =~ ^https?:// ]]; then
+    echo "ESP32 base URL must start with http:// or https://, for example http://192.168.1.50" >&2
+    echo "Nothing has been installed." >&2
+    exit 1
+  fi
+  ESP32_URL="${url%/}"
+}
+
 install_packages() {
   echo "==> Installing packages (cec-utils, v4l-utils, curl)..."
   apt-get update
@@ -84,19 +106,9 @@ write_config() {
     return 0
   fi
 
-  local url="${1:-}"
-  if [[ -z "$url" ]]; then
-    read -rp "ESP32 base URL (e.g. http://192.168.1.50): " url
-  fi
-  if [[ ! "$url" =~ ^https?:// ]]; then
-    echo "ESP32 base URL must start with http:// or https://" >&2
-    exit 1
-  fi
-  url="${url%/}"
-
   echo "==> Writing $CONF_FILE ..."
   mkdir -p "$(dirname "$CONF_FILE")"
-  sed "s|^ESP32_BASE_URL=.*|ESP32_BASE_URL=\"${url}\"|" \
+  sed "s|^ESP32_BASE_URL=.*|ESP32_BASE_URL=\"${ESP32_URL}\"|" \
     "${REPO_DIR}/cec-ir-bridge.conf.example" > "$CONF_FILE"
   chmod 644 "$CONF_FILE"
 }
@@ -189,8 +201,9 @@ next_steps() {
 }
 
 main() {
+  resolve_url "${1:-}"
   install_packages
-  write_config "${1:-}"
+  write_config
   install_files
   write_boot_config
   start_service

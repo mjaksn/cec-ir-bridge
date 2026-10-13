@@ -26,6 +26,14 @@ not get a release page.
 - **The README and the installer's summary say to set the TV's sound output to
   the audio system.** A Sony Bravia ignores the bridge for volume until its
   speaker setting is **Audio System**.
+
+### Fixed
+
+- **A URL without `http://` is refused before anything is installed.** The
+  installer used to check it after `apt-get`, so a bare address like
+  `192.168.1.50` left the packages installed and nothing else: no config, no
+  bridge and no unit. The one line saying why came straight after the apt
+  output, where it was easy to miss.
 - **The README covers the Pi 2 B,** which needs the 32-bit image and, having
   no Wi-Fi, Ethernet or a dongle to reach the ESP32. It also gives the commands
   for watching raw CEC traffic.
