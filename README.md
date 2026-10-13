@@ -58,15 +58,24 @@ system would answer to, and turns what it hears there into HTTP.
 
 ## Hardware
 
-- Raspberry Pi with a free HDMI port on the TV (a Zero 2 W is plenty;
-  the Pi's HDMI port has native CEC support, no adapter hardware needed)
+- Raspberry Pi with a free HDMI port on the TV. The Pi's HDMI port has
+  native CEC support, so no adapter hardware is needed, and the bridge
+  asks very little of the board: a Zero 2 W is plenty, and an old Pi 2 B
+  works just as well
+- A network path from the Pi to the ESP32. A model without Wi-Fi, such
+  as the Pi 2 B, needs Ethernet or a USB Wi-Fi dongle
 - ESP32 (or similar) with an IR transmitter, running firmware that
   exposes HTTP endpoints which transmit your soundbar's volume up,
   volume down, and mute IR codes
-- An HDMI cable (plus a mini-HDMI adapter for a Pi Zero)
+- An HDMI cable (plus an adapter for a Pi with a mini or micro HDMI
+  port, such as a Zero)
 
 The Pi only needs to join the CEC bus. Nothing has to "watch" its HDMI
 input, and it needs no connection to the Apple TV or soundbar.
+
+On a Pi 2 B, use the 32-bit Raspberry Pi OS image. The original v1.1
+board cannot run the 64-bit one, and nothing here needs it. The bridge
+is plain bash, so the install is otherwise identical.
 
 ## Install
 
