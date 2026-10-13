@@ -58,15 +58,24 @@ system would answer to, and turns what it hears there into HTTP.
 
 ## Hardware
 
-- Raspberry Pi with a free HDMI port on the TV (a Zero 2 W is plenty;
-  the Pi's HDMI port has native CEC support, no adapter hardware needed)
+- Raspberry Pi with a free HDMI port on the TV. The Pi's HDMI port has
+  native CEC support, so no adapter hardware is needed, and the bridge
+  asks very little of the board: a Zero 2 W is plenty, and an old Pi 2 B
+  works just as well
+- A network path from the Pi to the ESP32. A model without Wi-Fi, such
+  as the Pi 2 B, needs Ethernet or a USB Wi-Fi dongle
 - ESP32 (or similar) with an IR transmitter, running firmware that
   exposes HTTP endpoints which transmit your soundbar's volume up,
   volume down, and mute IR codes
-- An HDMI cable (plus a mini-HDMI adapter for a Pi Zero)
+- An HDMI cable (plus an adapter for a Pi with a mini or micro HDMI
+  port, such as a Zero)
 
 The Pi only needs to join the CEC bus. Nothing has to "watch" its HDMI
 input, and it needs no connection to the Apple TV or soundbar.
+
+On a Pi 2 B, use the 32-bit Raspberry Pi OS image. The original v1.1
+board cannot run the 64-bit one, and nothing here needs it. The bridge
+is plain bash, so the install is otherwise identical.
 
 ## Install
 
@@ -182,6 +191,29 @@ Control setting, restart the Apple TV, or inspect the bus:
 ```bash
 echo scan | cec-client -s -d 1        # list devices on the CEC bus
 cec-ctl -d /dev/cec0                  # kernel view of the adapter
+```
+
+The journal shows only the events the bridge recognises. To see every
+frame addressed to the Pi, decoded, run this alongside the service. It
+only listens, so the bridge keeps working while it runs:
+
+```bash
+sudo cec-ctl -d /dev/cec0 --monitor
+```
+
+A volume press from the Apple TV shows up as a frame from `(4 to 5)`
+carrying `ui-cmd: volume-up`. If nothing arrives there, the Apple TV is
+not sending to the audio system address, and the problem is upstream of
+the bridge.
+
+To see the raw frames exactly as the default engine reads them, stop the
+service first, since only one `cec-client` can hold the adapter, then
+run the same command the bridge does and press Ctrl+C when finished:
+
+```bash
+sudo systemctl stop cec-ir-bridge
+cec-client -t a -o Soundbar -d 8      # prints frames like >> 45:44:41
+sudo systemctl start cec-ir-bridge
 ```
 
 ## Development
