@@ -8,6 +8,36 @@ The release workflow lifts the section matching a pushed tag out of this file
 and publishes it as the release notes, so a version with no section here does
 not get a release page.
 
+## [Unreleased]
+
+### Added
+
+- **The Pi's boot firmware stays off the CEC bus.** While the Pi started up,
+  the firmware joined the bus by itself, before the bridge was running. It
+  announced itself as the active source, switching the TV to the Pi's input,
+  and then vanished when Linux took over HDMI, which made a Sony Bravia drop
+  every CEC device it knew, the Apple TV included. The installer now adds
+  `hdmi_ignore_cec=1` to `/boot/firmware/config.txt` (or `/boot/config.txt` on
+  older images). The bridge uses the kernel's CEC driver, which the setting
+  does not touch. It needs one reboot. A line already in the file is left
+  alone whatever its value, so `hdmi_ignore_cec=0` keeps the old behaviour
+  across re-installs. The narrower `hdmi_ignore_cec_init=1` stopped the input
+  switching but not the dropped devices.
+- **The README and the installer's summary say to set the TV's sound output to
+  the audio system.** A Sony Bravia ignores the bridge for volume until its
+  speaker setting is **Audio System**.
+
+### Fixed
+
+- **A URL without `http://` is refused before anything is installed.** The
+  installer used to check it after `apt-get`, so a bare address like
+  `192.168.1.50` left the packages installed and nothing else: no config, no
+  bridge and no unit. The one line saying why came straight after the apt
+  output, where it was easy to miss.
+- **The README covers the Pi 2 B,** which needs the 32-bit image and, having
+  no Wi-Fi, Ethernet or a dongle to reach the ESP32. It also gives the commands
+  for watching raw CEC traffic.
+
 ## [0.1.1] - 2026-08-29
 
 Documentation only. The bridge, the installer and the unit behave exactly as

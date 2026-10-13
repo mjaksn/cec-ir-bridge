@@ -12,6 +12,10 @@
 # existing config file keeps every value it already had. Settings added
 # to the example since the last run are appended, with their comments.
 #
+# On a Pi it also adds hdmi_ignore_cec=1 to the boot config.txt, unless
+# that file already sets it, which keeps the boot firmware off the CEC bus
+# while the Pi starts up.
+#
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -59,6 +63,28 @@ merge_new_settings() {
   ' "$example"
 }
 
+ESP32_URL=""
+
+# Settle the ESP32 URL before anything is installed. Checked any later, a
+# URL typed without its http:// fails after a minute of apt output, with
+# the packages installed, nothing else, and the one line saying why easy
+# to miss. A re-install never reads the argument, because the configured
+# URL is one of the values it leaves alone.
+resolve_url() {
+  [[ -f "$CONF_FILE" ]] && return 0
+
+  local url="${1:-}"
+  if [[ -z "$url" ]]; then
+    read -rp "ESP32 base URL (e.g. http://192.168.1.50): " url
+  fi
+  if [[ ! "$url" =~ ^https?:// ]]; then
+    echo "ESP32 base URL must start with http:// or https://, for example http://192.168.1.50" >&2
+    echo "Nothing has been installed." >&2
+    exit 1
+  fi
+  ESP32_URL="${url%/}"
+}
+
 install_packages() {
   echo "==> Installing packages (cec-utils, v4l-utils, curl)..."
   apt-get update
@@ -80,19 +106,9 @@ write_config() {
     return 0
   fi
 
-  local url="${1:-}"
-  if [[ -z "$url" ]]; then
-    read -rp "ESP32 base URL (e.g. http://192.168.1.50): " url
-  fi
-  if [[ ! "$url" =~ ^https?:// ]]; then
-    echo "ESP32 base URL must start with http:// or https://" >&2
-    exit 1
-  fi
-  url="${url%/}"
-
   echo "==> Writing $CONF_FILE ..."
   mkdir -p "$(dirname "$CONF_FILE")"
-  sed "s|^ESP32_BASE_URL=.*|ESP32_BASE_URL=\"${url}\"|" \
+  sed "s|^ESP32_BASE_URL=.*|ESP32_BASE_URL=\"${ESP32_URL}\"|" \
     "${REPO_DIR}/cec-ir-bridge.conf.example" > "$CONF_FILE"
   chmod 644 "$CONF_FILE"
 }
@@ -105,6 +121,49 @@ install_files() {
   echo "==> Installing systemd unit ..."
   mkdir -p "$(dirname "$UNIT_FILE")"
   install -m 644 "${REPO_DIR}/systemd/cec-ir-bridge.service" "$UNIT_FILE"
+}
+
+BOOT_CONFIG_CHANGED=""
+
+# At power on, the Pi's boot firmware joins the CEC bus by itself, before
+# Linux or the bridge are running. It announces itself as the active
+# source, which switches the TV to the Pi's input, and then vanishes from
+# the bus when the kernel takes over HDMI. A Sony Bravia was seen to drop
+# every CEC device it knew, the Apple TV included, when that happened.
+#
+# hdmi_ignore_cec=1 keeps the firmware off the bus entirely. It does not
+# reach the kernel's CEC driver, which is what the bridge uses through
+# /dev/cec0. hdmi_ignore_cec_init=1 is not enough: it stops the active
+# source message but leaves the firmware on the bus, and the Bravia still
+# dropped its devices. A line the operator has already written is left
+# alone whatever its value, so =0 is the way to keep the firmware on the
+# bus, and it survives a re-run.
+write_boot_config() {
+  # Bookworm moved the file and left a stub at the old path saying so, so
+  # the new location has to be tried first.
+  local boot_config=""
+  if [[ -f "${DESTDIR}/boot/firmware/config.txt" ]]; then
+    boot_config="${DESTDIR}/boot/firmware/config.txt"
+  elif [[ -f "${DESTDIR}/boot/config.txt" ]]; then
+    boot_config="${DESTDIR}/boot/config.txt"
+  else
+    echo "==> No config.txt in /boot/firmware or /boot, so not a Raspberry Pi; skipping hdmi_ignore_cec."
+    return 0
+  fi
+
+  if grep -q '^[[:space:]]*hdmi_ignore_cec=' "$boot_config"; then
+    echo "==> hdmi_ignore_cec is already set in ${boot_config#"$DESTDIR"}; leaving it as it is."
+    return 0
+  fi
+
+  echo "==> Adding hdmi_ignore_cec=1 to ${boot_config#"$DESTDIR"} ..."
+  # The [all] header is there because a hand-edited file can end inside a
+  # [pi4] or [cm4] section, which would quietly scope the line to one model.
+  printf '\n%s\n%s\n%s\n' \
+    "# Added by cec-ir-bridge: keep the boot firmware off the CEC bus. The kernel's CEC, which the bridge uses, is unaffected." \
+    "[all]" \
+    "hdmi_ignore_cec=1" >> "$boot_config"
+  BOOT_CONFIG_CHANGED=1
 }
 
 start_service() {
@@ -125,14 +184,28 @@ next_steps() {
   echo "  Settings -> Remotes and Devices -> Volume Control -> Auto"
   echo "  (Toggle it or restart the Apple TV once so it re-scans the CEC bus.)"
   echo
+  echo "On the TV, if volume presses do nothing, set its sound output to the"
+  echo "audio system rather than the TV speakers. A Sony Bravia needs this."
+  echo
   echo "If cec-client cannot find the adapter on your image, set"
   echo "ENGINE=\"cec-ctl\" in /etc/cec-ir-bridge.conf and restart the service."
+  if [[ -n "$BOOT_CONFIG_CHANGED" ]]; then
+    echo
+    echo "Reboot once for hdmi_ignore_cec=1 to take effect. After that the boot"
+    echo "firmware stays off the CEC bus, so it no longer switches the TV to the"
+    echo "Pi's input or upsets the TV's list of CEC devices. A TV that still"
+    echo "switches is following the HDMI signal by itself; look for an automatic"
+    echo "input switching setting on the TV. To put the firmware back on the bus,"
+    echo "change the line to hdmi_ignore_cec=0; re-installing leaves it alone."
+  fi
 }
 
 main() {
+  resolve_url "${1:-}"
   install_packages
-  write_config "${1:-}"
+  write_config
   install_files
+  write_boot_config
   start_service
   next_steps
 }
