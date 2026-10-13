@@ -105,24 +105,38 @@ The installer:
    a re-install keeps every value already in it and only appends
    settings the example has gained)
 3. Installs the bridge to `/usr/local/bin/cec-ir-bridge`
-4. Adds `hdmi_ignore_cec_init=1` to `/boot/firmware/config.txt` (or
+4. Adds `hdmi_ignore_cec=1` to `/boot/firmware/config.txt` (or
    `/boot/config.txt` on older images), unless that file already sets it
 5. Installs, enables, and starts the `cec-ir-bridge` systemd service
 
-Step 4 stops the Pi's boot firmware from announcing itself as the active
-source on CEC, which would otherwise switch the TV to the Pi's input
-every time the Pi boots. CEC stays on, so the bridge is unaffected. It
-takes effect after one reboot. A line already in the file is left as it
-is, whatever its value, so `hdmi_ignore_cec_init=0` keeps the switching
-and survives a re-install. If the TV still switches after the reboot, it
-is following the HDMI signal by itself; look for an automatic input
-switching setting on the TV.
+Step 4 keeps the Pi's boot firmware off the CEC bus. Without it, the
+firmware joins the bus by itself while the Pi starts up: it announces
+itself as the active source, which switches the TV to the Pi's input,
+and then vanishes when Linux takes over HDMI. A Sony Bravia was seen to
+drop every CEC device it knew when that happened, the Apple TV
+included. The bridge uses the kernel's CEC driver rather than the
+firmware's, so it is unaffected. The setting takes effect after one
+reboot. A line already in the file is left as it is, whatever its value,
+so `hdmi_ignore_cec=0` puts the firmware back on the bus and survives a
+re-install.
+
+`hdmi_ignore_cec_init=1`, the setting usually suggested for the input
+switching, is not enough on its own. It stops the active source message
+but leaves the firmware on the bus, and the Bravia still dropped its
+devices with it in place. If the TV still switches inputs after the
+reboot, it is following the HDMI signal by itself; look for an automatic
+input switching setting on the TV.
 
 Then on the Apple TV: **Settings -> Remotes and Devices -> Volume
 Control -> Auto**. Toggle the setting or restart the Apple TV once so it
 re-scans the CEC bus and discovers the new "Soundbar" audio system. Make
 sure the TV is on the first time you test, since the Pi cannot obtain a
 CEC physical address until it reads EDID from the TV.
+
+On the TV, set the sound output to the audio system rather than the TV
+speakers if volume presses do nothing. A Sony Bravia needs this (its
+speaker setting is called **Audio System**) before the Apple TV's volume
+commands reach the bridge.
 
 ## Configure
 
@@ -256,5 +270,5 @@ things about CEC and about the installer that are easy to get wrong.
 - TV CEC implementations are quirky. If the TV pops up an "audio system
   connected" notification or changes its speaker routing, check its
   audio/CEC settings. The bridge never declares itself an active
-  source, and with `hdmi_ignore_cec_init=1` (see Install) neither does
-  the Pi's boot firmware, so it should not steal the screen.
+  source, and with `hdmi_ignore_cec=1` (see Install) neither does the
+  Pi's boot firmware, so it should not steal the screen.

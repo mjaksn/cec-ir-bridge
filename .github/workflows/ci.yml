@@ -89,14 +89,14 @@ jobs:
         # would start, fail to find /dev/cec0, and be restarted forever.
         #
         # The runner has no Raspberry Pi config.txt, so the installer must
-        # skip the hdmi_ignore_cec_init step and carry on, and saying so in
+        # skip the hdmi_ignore_cec step and carry on, and saying so in
         # its output is how this run knows that path was taken. The default
         # shell has no pipefail, and without it tee would hide a failing
         # installer.
         run: |
           set -o pipefail
           sudo env "PATH=$PWD/tests/stubs:$PATH" ./install.sh http://esp32.test | tee "$RUNNER_TEMP/install.log"
-          grep -q 'skipping hdmi_ignore_cec_init' "$RUNNER_TEMP/install.log"
+          grep -q 'skipping hdmi_ignore_cec' "$RUNNER_TEMP/install.log"
           test -f /etc/cec-ir-bridge.conf
           test -x /usr/local/bin/cec-ir-bridge
           test -f /etc/systemd/system/cec-ir-bridge.service
