@@ -249,17 +249,9 @@ sudo cec-ctl -d /dev/cec0 --monitor
 A volume press from the Apple TV shows up as a frame from `(4 to 5)`
 carrying `ui-cmd: volume-up`. If nothing arrives there, the Apple TV is
 not sending to the audio system address, and the problem is upstream of
-the bridge.
-
-To see where those presses go instead, watch the traffic between other
-devices too. Volume frames from `(4 to 0)` mean the Apple TV is still
-sending them to the TV. Not every adapter can do this; when the Pi's
-cannot, `cec-ctl` prints `Monitor All mode is not supported, falling
-back to regular monitoring` and shows the same frames as `--monitor`:
-
-```bash
-sudo cec-ctl -d /dev/cec0 --monitor-all
-```
+the bridge. The Pi cannot show where those presses went instead: its
+adapter sees only frames addressed to it or broadcast, and asking for
+everything with `--monitor-all` falls back to the same view.
 
 To see the raw frames exactly as the default engine reads them, stop the
 service first, since only one `cec-client` can hold the adapter, then
