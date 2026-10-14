@@ -8,6 +8,26 @@ The release workflow lifts the section matching a pushed tag out of this file
 and publishes it as the release notes, so a version with no section here does
 not get a release page.
 
+## [0.1.3] - 2026-10-13
+
+Documentation only, as 0.1.1 was. The bridge, the installer and the unit behave
+exactly as they did in 0.1.2, and nothing already running has a reason to move
+for it. It is a release so that the README in the tarball carries the commands
+below.
+
+### Added
+
+- **More debugging commands in the README**, each ruling out one part of the
+  path from the remote to the soundbar. `systemctl status`, the journal since
+  boot and `ls -l /dev/cec*` show whether the service started and found the
+  adapter. `cec-ctl --show-topology` lists the devices on the bus, and asking a
+  device for its name puts one to an initiator number in the journal. A
+  hand-made POST to the ESP32 shows whether it answers: the bridge throws the
+  response away, so a failing ESP32 never shows up in the journal.
+- **The README says the Pi cannot watch traffic between other devices.** Its
+  adapter has no Monitor All mode, so `cec-ctl --monitor-all` falls back to the
+  frames addressed to the Pi or broadcast, the same view as `--monitor`.
+
 ## [0.1.2] - 2026-10-12
 
 The installer now edits the Pi's boot `config.txt`, the first file it changes
@@ -130,6 +150,7 @@ rather than a clone of whatever `main` happened to be.
   that a recorded capture can be piped through them, which is what the tests
   do.
 
+[0.1.3]: https://github.com/mjaksn/cec-ir-bridge/releases/tag/v0.1.3
 [0.1.2]: https://github.com/mjaksn/cec-ir-bridge/releases/tag/v0.1.2
 [0.1.1]: https://github.com/mjaksn/cec-ir-bridge/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mjaksn/cec-ir-bridge/releases/tag/v0.1.0
