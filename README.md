@@ -206,6 +206,16 @@ else if the machine has been through more than one install:
 cec-ir-bridge --version
 ```
 
+If the journal shows no events at all, check that the service is up and
+read what it said when it started. A missing `/dev/cec0` means the
+kernel has no CEC adapter for the bridge to open:
+
+```bash
+systemctl status cec-ir-bridge        # running, restarting, or failed
+journalctl -u cec-ir-bridge -b        # everything since boot, startup included
+ls -l /dev/cec*                       # the adapter both engines open
+```
+
 Pressing volume in the iPhone Remote app should immediately print a line
 like `CEC: volume up from initiator 4 ->
 http://192.168.1.50/button/volume_up/press`, and filtered events print
@@ -216,6 +226,16 @@ Control setting, restart the Apple TV, or inspect the bus:
 ```bash
 echo scan | cec-client -s -d 1        # list devices on the CEC bus
 cec-ctl -d /dev/cec0                  # kernel view of the adapter
+cec-ctl -d /dev/cec0 --show-topology  # every device, with its addresses
+```
+
+To find out which device sits behind an initiator number in the
+journal, or whether one answers at all, ask it directly. These send from
+the address the bridge holds, so run them with the service up:
+
+```bash
+cec-ctl -d /dev/cec0 --to 4 --give-osd-name              # who is initiator 4?
+cec-ctl -d /dev/cec0 --to 0 --give-device-power-status   # is the TV answering?
 ```
 
 The journal shows only the events the bridge recognises. To see every
@@ -229,7 +249,9 @@ sudo cec-ctl -d /dev/cec0 --monitor
 A volume press from the Apple TV shows up as a frame from `(4 to 5)`
 carrying `ui-cmd: volume-up`. If nothing arrives there, the Apple TV is
 not sending to the audio system address, and the problem is upstream of
-the bridge.
+the bridge. The Pi cannot show where those presses went instead: its
+adapter sees only frames addressed to it or broadcast, and asking for
+everything with `--monitor-all` falls back to the same view.
 
 To see the raw frames exactly as the default engine reads them, stop the
 service first, since only one `cec-client` can hold the adapter, then
@@ -239,6 +261,17 @@ run the same command the bridge does and press Ctrl+C when finished:
 sudo systemctl stop cec-ir-bridge
 cec-client -t a -o Soundbar -d 8      # prints frames like >> 45:44:41
 sudo systemctl start cec-ir-bridge
+```
+
+The journal line is written before the HTTP call is made, and the
+response is discarded, so a press that reaches the bridge but never
+moves the soundbar points at the ESP32 side. Make the same call by hand,
+using the URL from your config, and read the status line. It must be a
+POST, because ESPHome's button endpoints answer `405` to a GET:
+
+```bash
+. /etc/cec-ir-bridge.conf
+curl -i -X POST "${ESP32_BASE_URL}${VOLUME_UP_PATH}"
 ```
 
 ## Development
