@@ -3,8 +3,8 @@
 #
 # Registers on the HDMI-CEC bus as an Audio System (logical address 5).
 # When another device (e.g. an Apple TV driven by the iPhone Remote app)
-# sends CEC volume/mute commands, fires HTTP requests at an ESP32-based
-# IR blaster that transmits the matching soundbar IR codes.
+# sends CEC volume, mute or power commands, fires HTTP requests at an
+# ESP32-based IR blaster that transmits the matching soundbar IR codes.
 #
 # Commands are filtered by initiator (the logical address that sent
 # them), so spurious presses from one device can be ignored while the
@@ -25,7 +25,9 @@ CONF_FILE="${CEC_IR_BRIDGE_CONF:-/etc/cec-ir-bridge.conf}"
 # `set -u` a hand-edited config that dropped a line would otherwise kill
 # the service on the first frame that referenced it, and a reader gets
 # the full list of settings in one place. These must agree with
-# cec-ir-bridge.conf.example, and tests/config.test.sh checks that they do.
+# cec-ir-bridge.conf.example, all but ESP32_BASE_URL, for which the
+# example carries an address to replace, and tests/config.test.sh checks
+# that they do.
 ESP32_BASE_URL=""
 VOLUME_UP_PATH="/button/volume_up/press"
 VOLUME_DOWN_PATH="/button/volume_down/press"
@@ -52,7 +54,8 @@ Options:
   --version    print the version and exit
   --help, -h   print this and exit
 
-Settings are read from $CONF_FILE.
+Settings are read from $CONF_FILE; set CEC_IR_BRIDGE_CONF
+to read another file.
 USAGE
 }
 
