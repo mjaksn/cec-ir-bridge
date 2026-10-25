@@ -31,8 +31,9 @@ than after:
   A release additionally requires the tag to match it and `CHANGELOG.md` to
   have a `## [x.y.z]` section for it.
 - **Every setting has a default in `bin/cec-ir-bridge` and the same value in
-  `cec-ir-bridge.conf.example`.** `tests/config.test.sh` compares the two
-  files, so adding a setting to one and not the other fails.
+  `cec-ir-bridge.conf.example`**, all but `ESP32_BASE_URL`, which is empty in
+  the script and a worked address in the example. `tests/config.test.sh`
+  compares the two files, so adding a setting to one and not the other fails.
 - **ShellCheck passes on every script**, the test suite and the stubs included.
 - **The release tarball installs.** CI unpacks it and runs the installer from
   the unpacked copy, not from the repository.

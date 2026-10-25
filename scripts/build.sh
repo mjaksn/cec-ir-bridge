@@ -12,8 +12,9 @@
 #
 # The file list below is the whole of what a release contains: the
 # bridge, the installer, the unit, the example config and the prose.
-# Tests, fixtures and workflows are deliberately not in it, since
-# nothing on a Raspberry Pi has any use for them.
+# Tests, fixtures, workflows and AGENTS.md are deliberately not in it,
+# since nothing on a Raspberry Pi has any use for them, and neither is
+# esphome/ir-blaster.yaml, which is flashed to the ESP32 from a desktop.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
