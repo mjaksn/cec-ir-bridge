@@ -136,7 +136,8 @@ CEC physical address until it reads EDID from the TV.
 On the TV, set the sound output to the audio system rather than the TV
 speakers if volume presses do nothing. A Sony Bravia needs this (its
 speaker setting is called **Audio System**) before the Apple TV's volume
-commands reach the bridge.
+commands reach the bridge, and it can slip back to its speakers later on;
+see [Keeping a Sony Bravia on Audio System](#keeping-a-sony-bravia-on-audio-system).
 
 ## Configure
 
@@ -190,6 +191,55 @@ Two backends are included:
   is in maintenance mode and Raspberry Pi engineers point people toward
   the kernel API, so if `cec-client` cannot find `/dev/cec0` on your
   image, set `ENGINE="cec-ctl"` and restart the service.
+
+## Keeping a Sony Bravia on Audio System
+
+A Bravia set to **Audio System** does not always stay there. Now and then
+it falls back to its built-in speakers, and from then on the Apple TV's
+volume presses stop reaching the bridge. The journal goes quiet rather
+than showing an error, because no frames arrive.
+
+The TV's IP control interface has a button that puts the output back. A
+Bravia remote app that exposes the full IRCC button list shows it as
+**Audio Output_Audio System**, and its IRCC code is
+`AAAAAgAAAMQAAAAiAw==`. Sent while the TV is already on Audio System, it
+has shown no visible effect at all: no flicker, no skip in the audio and
+nothing on screen. Sent after the TV has slipped to its speakers, it
+switches the output back, with a brief interruption while it does. That
+makes it safe to send routinely, not only once something has gone wrong.
+
+Sending it about five seconds after the TV turns on, and again about five
+seconds after the TV switches to the Apple TV's input, has kept one Bravia
+on Audio System since. The bridge does not send it; something that sees
+those events has to, such as a home automation system.
+
+The TV must have IP control enabled with a pre-shared key, and the key
+goes in the `X-Auth-PSK` header. To send the button by hand:
+
+```bash
+curl -i -X POST "http://<tv-ip>/sony/ircc" \
+  -H 'Content-Type: text/xml; charset=UTF-8' \
+  -H 'SOAPAction: "urn:schemas-sony-com:service:IRCC:1#X_SendIRCC"' \
+  -H 'X-Auth-PSK: <pre-shared-key>' \
+  -d '<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:X_SendIRCC xmlns:u="urn:schemas-sony-com:service:IRCC:1"><IRCCCode>AAAAAgAAAMQAAAAiAw==</IRCCCode></u:X_SendIRCC></s:Body></s:Envelope>'
+```
+
+The same call as a Home Assistant `rest_command`, for automations to run
+on those two events:
+
+```yaml
+rest_command:
+  set_sony_bravia_to_soundsystem_mode:
+    url: "http://<tv-ip>/sony/ircc"
+    method: POST
+    timeout: 10
+    content_type: "text/xml; charset=UTF-8"
+    headers:
+      SOAPAction: '"urn:schemas-sony-com:service:IRCC:1#X_SendIRCC"'
+      X-Auth-PSK: !secret sony_tv_psk
+    payload: >-
+      <?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:X_SendIRCC xmlns:u="urn:schemas-sony-com:service:IRCC:1"><IRCCCode>AAAAAgAAAMQAAAAiAw==</IRCCCode></u:X_SendIRCC></s:Body></s:Envelope>
+```
 
 ## Debugging
 
@@ -302,6 +352,8 @@ things about CEC and about the installer that are easy to get wrong.
   soundbar itself is the source of truth.
 - TV CEC implementations are quirky. If the TV pops up an "audio system
   connected" notification or changes its speaker routing, check its
-  audio/CEC settings. The bridge never declares itself an active
-  source, and with `hdmi_ignore_cec=1` (see Install) neither does the
-  Pi's boot firmware, so it should not steal the screen.
+  audio/CEC settings (for a Bravia that drops back to its speakers, see
+  [Keeping a Sony Bravia on Audio System](#keeping-a-sony-bravia-on-audio-system)).
+  The bridge never declares itself an active source, and with
+  `hdmi_ignore_cec=1` (see Install) neither does the Pi's boot firmware,
+  so it should not steal the screen.
