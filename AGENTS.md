@@ -18,6 +18,7 @@ eleven at night has `journalctl` and nothing else.
 | `install.sh` | Installs the above, the unit and the config, and sets `hdmi_ignore_cec` in the boot `config.txt`. Safe to re-run. |
 | `cec-ir-bridge.conf.example` | The config an operator edits, installed to `/etc`. |
 | `systemd/cec-ir-bridge.service` | The unit. |
+| `esphome/ir-blaster.yaml` | A starting ESPHome config for the IR blaster, its buttons named to match the default paths. Flashed from a desktop, so not in the tarball. |
 | `scripts/build.sh` | Builds the release tarball. One file list, used by CI and the release. |
 | `tests/` | Plain bash. No framework, no dependencies, no hardware. |
 
@@ -38,10 +39,16 @@ than after:
 
 ## Things that are easy to get wrong
 
-- **The calls are POSTs.** ESPHome's `/button/<id>/press` endpoints answer 405
-  to a GET, so dropping `-X POST` from `fire()` leaves every press failing
+- **The calls are POSTs.** ESPHome's `/button/<name>/press` endpoints answer
+  405 to a GET, so dropping `-X POST` from `fire()` leaves every press failing
   silently, with nothing in the log to say so. This has happened once already.
   `tests/dispatch.test.sh` asserts the method for that reason.
+- **The default paths assume buttons named `volume_up`, `volume_down` and
+  `mute`.** ESPHome 2026.7 and later put a button's name in its URL, and
+  earlier versions an id derived from the name. A name already in that form
+  is the same either way, which is why the defaults use it. A button named
+  `Volume Up` answers only at `/button/Volume%20Up/press` on a current
+  ESPHome, and the 404 from the old path is as silent as the 405 above.
 - **Initiator addresses are decimal everywhere**, and the libcec parser reads
   them out of a hex nibble. `0` is the TV, `4`, `8` and `11` are playback
   devices, `5` is the audio system. Initiator 11 exists as a test case because

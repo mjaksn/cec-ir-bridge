@@ -5,7 +5,11 @@
 # Base URL of the ESP32 IR blaster (no trailing slash)
 ESP32_BASE_URL="http://192.168.1.50"
 
-# Endpoint paths on the ESP32 (edit to match your firmware)
+# Endpoint paths on the ESP32 (edit to match your firmware). The defaults
+# are ESPHome buttons named volume_up, volume_down and mute, which works on
+# any ESPHome version. ESPHome puts a button's name in its URL, so a button
+# with another name needs its path set to match, with spaces written as
+# %20: /button/Volume%20Up/press for one named "Volume Up".
 VOLUME_UP_PATH="/button/volume_up/press"
 VOLUME_DOWN_PATH="/button/volume_down/press"
 MUTE_PATH="/button/mute/press"
