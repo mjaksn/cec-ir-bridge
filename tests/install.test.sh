@@ -7,9 +7,9 @@
 # Debian packages or enabling a unit on the machine running it.
 #
 # The interesting part is the second run. Re-installing must refresh the
-# scripts and leave every value in an existing config exactly as the
-# operator left it, while picking up settings the example has gained since.
-# That merge is the least obvious code in the repository.
+# bridge and the unit and leave every value in an existing config exactly
+# as the operator left it, while picking up settings the example has gained
+# since. That merge is the least obvious code in the repository.
 #
 # The boot config.txt gets the same treatment on a smaller scale: the
 # installer adds hdmi_ignore_cec=1 once, and never touches a line the
@@ -72,6 +72,10 @@ echo "a second install, over the first"
 # whole setting removed as though the config predated it.
 sed -i 's|^OSD_NAME=.*|OSD_NAME="Living Room Bar"|' "$CONF"
 sed -i '/^POWER_ON_PATH=/d' "$CONF"
+# POWER_ON_PATH shares its comment with POWER_OFF_PATH, which stays. The
+# comment goes too, so that finding it after the merge means the merge put
+# it there, and not that it survived from the first install.
+sed -i '/^# Optional: fire soundbar power IR/,/^POWER_OFF_PATH=/{/^#/d}' "$CONF"
 sed -i 's|^MUTE_IGNORE_INITIATORS=.*|MUTE_IGNORE_INITIATORS="0,4"|' "$CONF"
 before="$(cat "$CONF")"
 
