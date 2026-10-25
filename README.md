@@ -66,7 +66,9 @@ system would answer to, and turns what it hears there into HTTP.
   as the Pi 2 B, needs Ethernet or a USB Wi-Fi dongle
 - ESP32 (or similar) with an IR transmitter, running firmware that
   exposes HTTP endpoints which transmit your soundbar's volume up,
-  volume down, and mute IR codes
+  volume down, and mute IR codes. With ESPHome, name the buttons
+  `volume_up`, `volume_down` and `mute` and the default paths work as
+  they are (see Configure)
 - An HDMI cable (plus an adapter for a Pi with a mini or micro HDMI
   port, such as a Zero)
 
@@ -158,6 +160,27 @@ Edit `/etc/cec-ir-bridge.conf`:
 | `ENGINE` | `cec-client` | CEC backend, see below |
 
 Apply changes with `sudo systemctl restart cec-ir-bridge`.
+
+The default paths are ESPHome button endpoints for buttons named
+`volume_up`, `volume_down` and `mute`. ESPHome 2026.7 and later address a
+button by its name as written in the YAML; versions before 2026.1 used
+an id derived from the name, and the ones in between accepted both. A
+name already in that lowercase, underscored form is the same either way,
+so those three names work with any version:
+
+```yaml
+button:
+  - platform: template
+    name: "volume_up"
+    on_press:
+      - remote_transmitter.transmit_nec:   # your soundbar's own protocol and code
+          address: 0x0000
+          command: 0x0000
+```
+
+A button with any other name needs its path set to match, with spaces
+written as `%20`. On a current ESPHome, one named `Volume Up` is
+`/button/Volume%20Up/press`, and `/button/volume_up/press` answers `404`.
 
 The optional power paths let the soundbar follow the rest of the system:
 when the Apple TV sleeps everything via CEC, the bridge can fire the
@@ -260,8 +283,7 @@ three times, 45 ms apart:
 ```yaml
 button:
   - platform: template
-    name: "TV Audio System"
-    id: tv_audio_system
+    name: "tv_audio_system"
     on_press:
       - remote_transmitter.transmit_sony:
           data: 0x2223
@@ -271,11 +293,11 @@ button:
             wait_time: 21ms
 ```
 
-Current ESPHome addresses a button by its name, URL-encoded, so this one
-is pressed with:
+Named that way, it is at the same path on any ESPHome version, for the
+reason given under Configure:
 
 ```bash
-curl -i -X POST "http://<esp32-ip>/button/TV%20Audio%20System/press"
+curl -i -X POST "http://<esp32-ip>/button/tv_audio_system/press"
 ```
 
 ## Debugging
@@ -360,6 +382,10 @@ POST, because ESPHome's button endpoints answer `405` to a GET:
 . /etc/cec-ir-bridge.conf
 curl -i -X POST "${ESP32_BASE_URL}${VOLUME_UP_PATH}"
 ```
+
+A `404` means the ESP32 has no button at that path. On ESPHome the path
+carries the button's name, so a button that is not named `volume_up` and
+so on needs its path set to match (see Configure).
 
 ## Development
 

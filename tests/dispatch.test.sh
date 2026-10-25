@@ -42,7 +42,7 @@ is "$(fired 4 44:43)" "POST http://esp32.test/button/mute/press" \
   "mute from the Apple TV fires the mute endpoint"
 
 # The method is the whole point of the assertions above carrying one.
-# ESPHome answers 405 to a GET on /button/<id>/press, so a change that
+# ESPHome answers 405 to a GET on /button/<name>/press, so a change that
 # dropped -X POST would leave every press silently failing.
 contains "$(fired 4 44:41)" "POST " "the call is a POST, which ESPHome requires"
 
