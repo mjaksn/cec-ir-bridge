@@ -28,6 +28,10 @@ web_server:
 
 # Optional: Home Assistant, and updates over Wi-Fi after the first flash.
 api:
+  # The API reboots the device after 15 minutes with no API client, and
+  # the bridge's HTTP calls do not count as one. Without this, a blaster
+  # with no Home Assistant would restart every 15 minutes.
+  reboot_timeout: 0s
 ota:
   - platform: esphome
 
