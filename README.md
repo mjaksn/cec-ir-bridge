@@ -199,19 +199,25 @@ it falls back to its built-in speakers, and from then on the Apple TV's
 volume presses stop reaching the bridge. The journal goes quiet rather
 than showing an error, because no frames arrive.
 
-The TV's IP control interface has a button that puts the output back. A
-Bravia remote app that exposes the full IRCC button list shows it as
-**Audio Output_Audio System**, and its IRCC code is
-`AAAAAgAAAMQAAAAiAw==`. Sent while the TV is already on Audio System, it
-has shown no visible effect at all: no flicker, no skip in the audio and
-nothing on screen. Sent after the TV has slipped to its speakers, it
-switches the output back, with a brief interruption while it does. That
-makes it safe to send routinely, not only once something has gone wrong.
+Sony's remote codes include one that puts the output back. A Bravia
+remote app that exposes the full IRCC button list shows it as **Audio
+Output_Audio System**, and its IRCC code is `AAAAAgAAAMQAAAAiAw==`. Sent
+while the TV is already on Audio System, it has shown no visible effect
+at all: no flicker, no skip in the audio and nothing on screen. Sent
+after the TV has slipped to its speakers, it switches the output back,
+with a brief interruption while it does. That makes it safe to send
+routinely, not only once something has gone wrong.
 
 Sending it about five seconds after the TV turns on, and again about five
 seconds after the TV switches to the Apple TV's input, has kept one Bravia
 on Audio System since. The bridge does not send it; something that sees
 those events has to, such as a home automation system.
+
+There are two ways to send it, and both have behaved the same: over the
+network to the TV's IP control interface, or as infrared from the ESP32
+that already drives the soundbar.
+
+### Over the network
 
 The TV must have IP control enabled with a pre-shared key, and the key
 goes in the `X-Auth-PSK` header. To send the button by hand:
@@ -239,6 +245,37 @@ rest_command:
       X-Auth-PSK: !secret sony_tv_psk
     payload: >-
       <?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:X_SendIRCC xmlns:u="urn:schemas-sony-com:service:IRCC:1"><IRCCCode>AAAAAgAAAMQAAAAiAw==</IRCCCode></u:X_SendIRCC></s:Body></s:Envelope>
+```
+
+### As infrared from the ESP32
+
+If the IR blaster can reach the TV as well as the soundbar, it can send
+the same command as infrared, with no IP control or key on the TV. The
+button is not on the TV's own remote, so there is nothing to learn it
+from, but an IRCC code is a Sony SIRC code in base64, and this one is a
+15-bit code for device 196, command 34. ESPHome takes the bits in the
+order they are sent, which makes it `0x2223`. A Sony TV expects the frame
+three times, 45 ms apart:
+
+```yaml
+button:
+  - platform: template
+    name: "TV Audio System"
+    id: tv_audio_system
+    on_press:
+      - remote_transmitter.transmit_sony:
+          data: 0x2223
+          nbits: 15
+          repeat:
+            times: 3
+            wait_time: 21ms
+```
+
+Current ESPHome addresses a button by its name, URL-encoded, so this one
+is pressed with:
+
+```bash
+curl -i -X POST "http://<esp32-ip>/button/TV%20Audio%20System/press"
 ```
 
 ## Debugging
