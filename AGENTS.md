@@ -18,6 +18,7 @@ eleven at night has `journalctl` and nothing else.
 | `install.sh` | Installs the above, the unit and the config, and sets `hdmi_ignore_cec` in the boot `config.txt`. Safe to re-run. |
 | `cec-ir-bridge.conf.example` | The config an operator edits, installed to `/etc`. |
 | `systemd/cec-ir-bridge.service` | The unit. |
+| `esphome/ir-blaster.yaml` | A starting ESPHome config for the IR blaster, its buttons named to match the default paths. Flashed from a desktop, so not in the tarball. |
 | `scripts/build.sh` | Builds the release tarball. One file list, used by CI and the release. |
 | `tests/` | Plain bash. No framework, no dependencies, no hardware. |
 

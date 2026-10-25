@@ -68,7 +68,8 @@ system would answer to, and turns what it hears there into HTTP.
   exposes HTTP endpoints which transmit your soundbar's volume up,
   volume down, and mute IR codes. With ESPHome, name the buttons
   `volume_up`, `volume_down` and `mute` and the default paths work as
-  they are (see Configure)
+  they are; `esphome/ir-blaster.yaml` is a starting point (see
+  Configure)
 - An HDMI cable (plus an adapter for a Pi with a mini or micro HDMI
   port, such as a Zero)
 
@@ -166,17 +167,11 @@ The default paths are ESPHome button endpoints for buttons named
 button by its name as written in the YAML; versions before 2026.1 used
 an id derived from the name, and the ones in between accepted both. A
 name already in that lowercase, underscored form is the same either way,
-so those three names work with any version:
-
-```yaml
-button:
-  - platform: template
-    name: "volume_up"
-    on_press:
-      - remote_transmitter.transmit_nec:   # your soundbar's own protocol and code
-          address: 0x0000
-          command: 0x0000
-```
+so those three names work with any version.
+[`esphome/ir-blaster.yaml`](https://github.com/mjaksn/cec-ir-bridge/blob/main/esphome/ir-blaster.yaml)
+is a minimal ESPHome configuration with the three buttons already named
+that way, and comments on learning your soundbar's codes with an IR
+receiver.
 
 A button with any other name needs its path set to match, with spaces
 written as `%20`. On a current ESPHome, one named `Volume Up` is

@@ -1,0 +1,85 @@
+# A starting point for the ESPHome IR blaster that cec-ir-bridge calls.
+#
+# The bridge POSTs to /button/<name>/press, and its default paths are the
+# three buttons below. Keep their names as they are and the defaults work
+# on any ESPHome version; rename one and its path in
+# /etc/cec-ir-bridge.conf has to change to match.
+#
+# The IR codes are placeholders. Replace each with your soundbar's own,
+# learned with the receiver below (see the comment there).
+
+esphome:
+  name: ir-blaster
+
+# Any ESP32 board works; set the one you have. An ESP8266 works as well,
+# with an esp8266: block in place of this one.
+esp32:
+  board: esp32dev
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+logger:
+
+# The HTTP endpoints the bridge calls. Without this there is nothing for
+# it to reach.
+web_server:
+
+# Optional: Home Assistant, and updates over Wi-Fi after the first flash.
+api:
+ota:
+  - platform: esphome
+
+# The IR LED, through a transistor if it draws more than a pin can give.
+remote_transmitter:
+  pin: GPIO4
+  # Infrared remotes use a 50% carrier signal
+  carrier_duty_percent: 50%
+
+# An IR receiver module, used to learn your soundbar's codes. Point the
+# soundbar's own remote at it, press a button, and the log prints the code
+# in every protocol ESPHome recognises. Copy one into the matching transmit
+# action below: transmit_nec, transmit_samsung, transmit_pronto and so on.
+# It can be removed once the codes are in.
+remote_receiver:
+  pin:
+    number: GPIO5
+    # Receiver modules pull their output low while they see a signal
+    inverted: true
+  dump: all
+
+button:
+  - platform: template
+    name: "volume_up"
+    on_press:
+      - remote_transmitter.transmit_nec:
+          address: 0x0000  # placeholder: your soundbar's code
+          command: 0x0000
+
+  - platform: template
+    name: "volume_down"
+    on_press:
+      - remote_transmitter.transmit_nec:
+          address: 0x0000  # placeholder: your soundbar's code
+          command: 0x0000
+
+  - platform: template
+    name: "mute"
+    on_press:
+      - remote_transmitter.transmit_nec:
+          address: 0x0000  # placeholder: your soundbar's code
+          command: 0x0000
+
+  # Optional, for a Sony Bravia that drops back to its own speakers, if the
+  # IR LED can reach the TV. The README's "Keeping a Sony Bravia on Audio
+  # System" section explains when to press it.
+  # - platform: template
+  #   name: "tv_audio_system"
+  #   on_press:
+  #     - remote_transmitter.transmit_sony:
+  #         data: 0x2223
+  #         nbits: 15
+  #         repeat:
+  #           times: 3
+  #           wait_time: 21ms
