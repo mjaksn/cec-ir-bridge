@@ -14,8 +14,8 @@ the Siri Remote) come alive and send CEC volume/mute commands to it.
 This bridge receives those commands and fires HTTP requests at an
 ESP32-based IR blaster, which transmits the soundbar's IR codes.
 
-Audio never touches the Pi. It keeps flowing Apple TV -> TOSLINK ->
-soundbar, so there is zero quality loss.
+Audio never touches the Pi. It keeps flowing Apple TV -> HDMI -> TV ->
+TOSLINK -> soundbar, so it stays digital the whole way.
 
 ```mermaid
 flowchart LR
@@ -37,7 +37,7 @@ flowchart LR
     ATV -.->|"CEC: volume, mute, standby"| Pi
     Pi -.->|"HTTP POST"| ESP
     ESP -.->|infrared| Bar
-    ATV ==>|"TOSLINK, digital audio"| Bar
+    TV ==>|"TOSLINK, digital audio"| Bar
 
     classDef bridge stroke-width:3px
     class Pi bridge
@@ -48,8 +48,9 @@ the Pi on the same bus as the Apple TV. Dotted lines have no cable of
 their own, and together they trace the whole control path, from the
 remote over the air, through the CEC frames riding the HDMI wiring, to
 the HTTP call and the infrared across the room. The thick line is the
-audio, on its own optical cable from the Apple TV straight to the
-soundbar, never touching the Pi.
+audio, on its own optical cable from the TV's digital audio output to
+the soundbar. It reaches the TV from the Apple TV over the same HDMI
+run, and never touches the Pi.
 
 Note what the Pi is not plugged into. It has no connection to the Apple
 TV and none to the soundbar, and it never becomes the active source on
