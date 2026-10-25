@@ -14,8 +14,11 @@ VOLUME_UP_PATH="/button/volume_up/press"
 VOLUME_DOWN_PATH="/button/volume_down/press"
 MUTE_PATH="/button/mute/press"
 
-# Optional: fire soundbar power IR when the Apple TV sleeps/wakes the
-# system. Leave empty to disable.
+# Optional: fire soundbar power IR on CEC Standby (POWER_OFF_PATH) and on
+# Image View On or Text View On (POWER_ON_PATH). A source normally sends
+# the View On messages to the TV alone, so check with cec-ctl --monitor
+# that they reach the Pi before relying on POWER_ON_PATH. Leave empty to
+# disable.
 POWER_OFF_PATH=""
 POWER_ON_PATH=""
 
