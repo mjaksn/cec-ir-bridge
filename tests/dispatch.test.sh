@@ -2,9 +2,9 @@
 # What each CEC opcode does, and who is allowed to send it.
 #
 # The bridge is sourced rather than run, so dispatch() can be called with
-# a frame directly. curl is a stub on PATH that records the URL and the
-# method instead of fetching anything, so no request leaves the machine
-# and no ESP32 is involved.
+# an initiator and a payload directly. curl is a stub on PATH that records
+# the URL and the method instead of fetching anything, so no request
+# leaves the machine and no ESP32 is involved.
 set -uo pipefail
 # shellcheck source=lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"

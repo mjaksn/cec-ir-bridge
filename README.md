@@ -14,8 +14,8 @@ the Siri Remote) come alive and send CEC volume/mute commands to it.
 This bridge receives those commands and fires HTTP requests at an
 ESP32-based IR blaster, which transmits the soundbar's IR codes.
 
-Audio never touches the Pi. It keeps flowing Apple TV -> TOSLINK ->
-soundbar, so there is zero quality loss.
+Audio never touches the Pi. It keeps flowing Apple TV -> HDMI -> TV ->
+TOSLINK -> soundbar, so it stays digital the whole way.
 
 ```mermaid
 flowchart LR
@@ -37,7 +37,7 @@ flowchart LR
     ATV -.->|"CEC: volume, mute, standby"| Pi
     Pi -.->|"HTTP POST"| ESP
     ESP -.->|infrared| Bar
-    ATV ==>|"TOSLINK, digital audio"| Bar
+    TV ==>|"TOSLINK, digital audio"| Bar
 
     classDef bridge stroke-width:3px
     class Pi bridge
@@ -48,8 +48,9 @@ the Pi on the same bus as the Apple TV. Dotted lines have no cable of
 their own, and together they trace the whole control path, from the
 remote over the air, through the CEC frames riding the HDMI wiring, to
 the HTTP call and the infrared across the room. The thick line is the
-audio, on its own optical cable from the Apple TV straight to the
-soundbar, never touching the Pi.
+audio, on its own optical cable from the TV's digital audio output to
+the soundbar. It reaches the TV from the Apple TV over the same HDMI
+run, and never touches the Pi.
 
 Note what the Pi is not plugged into. It has no connection to the Apple
 TV and none to the soundbar, and it never becomes the active source on
@@ -68,8 +69,9 @@ system would answer to, and turns what it hears there into HTTP.
   exposes HTTP endpoints which transmit your soundbar's volume up,
   volume down, and mute IR codes. With ESPHome, name the buttons
   `volume_up`, `volume_down` and `mute` and the default paths work as
-  they are; `esphome/ir-blaster.yaml` is a starting point (see
-  Configure)
+  they are;
+  [`esphome/ir-blaster.yaml`](https://github.com/mjaksn/cec-ir-bridge/blob/main/esphome/ir-blaster.yaml)
+  is a starting point (see Configure)
 - An HDMI cable (plus an adapter for a Pi with a mini or micro HDMI
   port, such as a Zero)
 
@@ -105,8 +107,10 @@ The installer:
 
 1. Installs `cec-utils`, `v4l-utils`, and `curl`
 2. Writes `/etc/cec-ir-bridge.conf` (from `cec-ir-bridge.conf.example`;
-   a re-install keeps every value already in it and only appends
-   settings the example has gained)
+   a re-install keeps every value already in it, `ESP32_BASE_URL`
+   included, and only appends settings the example has gained, so to
+   change the URL later, edit the file rather than re-running the
+   installer with a new one)
 3. Installs the bridge to `/usr/local/bin/cec-ir-bridge`
 4. Adds `hdmi_ignore_cec=1` to `/boot/firmware/config.txt` (or
    `/boot/config.txt` on older images), unless that file already sets it
@@ -152,15 +156,17 @@ Edit `/etc/cec-ir-bridge.conf`:
 | `VOLUME_UP_PATH` | `/button/volume_up/press` | Endpoint for volume up IR |
 | `VOLUME_DOWN_PATH` | `/button/volume_down/press` | Endpoint for volume down IR |
 | `MUTE_PATH` | `/button/mute/press` | Endpoint for mute IR |
-| `POWER_OFF_PATH` | empty (disabled) | Fired on CEC standby broadcast |
-| `POWER_ON_PATH` | empty (disabled) | Fired on CEC wake (Image/Text View On) |
+| `POWER_OFF_PATH` | empty (disabled) | Fired on CEC Standby, broadcast or sent to the Pi |
+| `POWER_ON_PATH` | empty (disabled) | Fired on Image View On or Text View On, if the Pi receives one; a source normally sends these to the TV alone, so check with `cec-ctl --monitor` that they reach the Pi before relying on it |
 | `MUTE_IGNORE_INITIATORS` | `0` (the TV) | Initiators whose mute commands are ignored |
 | `VOLUME_IGNORE_INITIATORS` | empty | Initiators whose volume commands are ignored |
 | `POWER_IGNORE_INITIATORS` | empty | Initiators whose power commands are ignored |
 | `OSD_NAME` | `Soundbar` | Name shown to other CEC devices |
 | `ENGINE` | `cec-client` | CEC backend, see below |
 
-Apply changes with `sudo systemctl restart cec-ir-bridge`.
+Apply changes with `sudo systemctl restart cec-ir-bridge`. To read
+settings from another file instead, set `CEC_IR_BRIDGE_CONF` to its path
+in the bridge's environment.
 
 The default paths are ESPHome button endpoints for buttons named
 `volume_up`, `volume_down` and `mute`. ESPHome 2026.7 and later address a
@@ -178,8 +184,11 @@ written as `%20`. On a current ESPHome, one named `Volume Up` is
 `/button/Volume%20Up/press`, and `/button/volume_up/press` answers `404`.
 
 The optional power paths let the soundbar follow the rest of the system:
-when the Apple TV sleeps everything via CEC, the bridge can fire the
-soundbar's power IR code too.
+when the Apple TV puts everything to standby via CEC, the bridge can fire
+the soundbar's power IR code too. Waking is less certain. Image View On
+and Text View On are normally sent to the TV alone, so before relying on
+`POWER_ON_PATH`, check with `cec-ctl --monitor` (see Debugging) that they
+reach the Pi at all.
 
 ### Filtering by initiator
 
@@ -207,8 +216,10 @@ Two backends are included:
   human-readable log lines.
 - **`cec-ctl`**: the kernel CEC framework tool from `v4l-utils`. libcec
   is in maintenance mode and Raspberry Pi engineers point people toward
-  the kernel API, so if `cec-client` cannot find `/dev/cec0` on your
-  image, set `ENGINE="cec-ctl"` and restart the service.
+  the kernel API, so if `cec-client` cannot find the adapter on your
+  image even though `/dev/cec0` exists, set `ENGINE="cec-ctl"` and restart
+  the service. A missing `/dev/cec0` is a different fault, which neither
+  engine gets around (see Debugging).
 
 ## Keeping a Sony Bravia on Audio System
 
@@ -395,16 +406,17 @@ stub that records the URL and the method, and the installer runs into a
 temporary directory with `apt-get` and `systemctl` stubbed. It is safe to
 run on a development machine.
 
-`AGENTS.md` has the rest: what the tooling enforces, and the handful of
-things about CEC and about the installer that are easy to get wrong.
+[`AGENTS.md`](https://github.com/mjaksn/cec-ir-bridge/blob/main/AGENTS.md)
+has the rest: what the tooling enforces, and the handful of things about
+CEC and about the installer that are easy to get wrong.
 
 ## Notes and limitations
 
 - Each CEC volume press fires one HTTP call, and calls run in the
   background so held buttons do not queue latency. If hold-to-ramp feels
   slow, have the ESP32 send a short burst of IR repeats per call, or add
-  start/stop repeat endpoints and extend the bridge's handling of key
-  release frames.
+  start/stop repeat endpoints and teach the bridge to act on key release
+  frames (User Control Released, opcode `45`), which it currently ignores.
 - The Apple TV only sends relative volume steps, so the bridge does not
   track absolute volume. The on-screen volume HUD may look static; the
   soundbar itself is the source of truth.

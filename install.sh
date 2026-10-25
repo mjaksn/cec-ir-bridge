@@ -3,14 +3,16 @@
 # install.sh
 #
 # Installs cec-ir-bridge on Raspberry Pi OS Lite (Trixie, also works on
-# Bookworm). Run from the root of this repository:
+# Bookworm). Run from the top of the unpacked release, or of a clone:
 #
 #   sudo ./install.sh http://<esp32-ip-or-hostname>
 #
-# The ESP32 URL argument is optional; you will be prompted if omitted.
-# Re-running is safe: scripts and the systemd unit are refreshed, but an
-# existing config file keeps every value it already had. Settings added
-# to the example since the last run are appended, with their comments.
+# The ESP32 URL argument is optional on a first install, which prompts for
+# it if omitted; a re-install keeps the configured URL and ignores the
+# argument. Re-running is safe: the bridge and the systemd unit are
+# refreshed, but an existing config file keeps every value it already
+# had. Settings added to the example since the last run are appended,
+# with their comments.
 #
 # On a Pi it also adds hdmi_ignore_cec=1 to the boot config.txt, unless
 # that file already sets it, which keeps the boot firmware off the CEC bus
@@ -55,8 +57,12 @@ merge_new_settings() {
     /^[[:space:]]*$/ { comments = ""; next }
     /^[A-Za-z_][A-Za-z0-9_]*=/ {
       key = $0; sub(/=.*/, "", key)
-      if (!(key in have)) { printf "\n%s%s\n", comments, $0; print key > "/dev/stderr" }
-      comments = ""
+      # The comment block is held until a key that needs it, so a missing
+      # setting gets it even when one above it in the block is installed.
+      if (!(key in have)) {
+        printf "\n%s%s\n", comments, $0; print key > "/dev/stderr"
+        comments = ""
+      }
       next
     }
     { comments = "" }
@@ -210,8 +216,10 @@ main() {
   next_steps
 }
 
-# Executed, this installs. Sourced, as the test suite does, it defines the
-# functions above and stops, so merge_new_settings can be driven directly.
+# Executed, this installs. Sourced, it defines the functions above and
+# stops, so merge_new_settings can be driven directly, but the root check
+# above still runs, so set DESTDIR or be root. The test suite does not
+# source it; it runs it end to end into a DESTDIR.
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   main "$@"
 fi

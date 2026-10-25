@@ -38,6 +38,9 @@ contains "$got" "POST http://esp32.test/button/volume_down/press" \
   "45:44:42 is a volume down"
 contains "$got" "POST http://esp32.test/button/power_off/press" \
   "0f:36 broadcast is a standby"
+# A source normally sends Image View On to the TV alone, so the Pi would
+# rarely read 0f:04 off a real bus. It is in the fixture to show what the
+# bridge does if one reaches it.
 contains "$got" "POST http://esp32.test/button/power_on/press" \
   "0f:04 broadcast is a wake"
 
@@ -50,8 +53,15 @@ is "$(printf '%s
   "the TV's rogue mute is dropped and the Apple TV's is kept"
 
 # Outgoing frames are the bridge's own, and reacting to them would have it
-# answering itself.
-lacks "$got" "Soundbar" "an outgoing << frame is not read as an event"
+# answering itself. Checked with a volume up of its own, which would fire
+# a call if << lines were parsed, rather than through the fixture's reply,
+# whose opcode fires nothing either way.
+CURL_LOG="$(mktemp)"
+export CURL_LOG
+parse_cec_client > /dev/null <<< "TRAFFIC: << 54:44:41"
+wait
+is "$(cat "$CURL_LOG")" "" "an outgoing << frame is not read as an event"
+rm -f "$CURL_LOG"
 
 # b5:44:41 has initiator 11, which is a playback device and perfectly
 # legitimate. It is here because its nibble is a letter, and reading that
@@ -96,6 +106,8 @@ contains "$got" "POST http://esp32.test/button/volume_down/press" \
   "ui-cmd: volume-down is a volume down"
 contains "$got" "POST http://esp32.test/button/power_off/press" \
   "STANDBY is a standby"
+# As with 0f:04 above, the View On lines are what the bridge would read if
+# one reached the Pi; a source normally sends them to the TV alone.
 contains "$got" "POST http://esp32.test/button/power_on/press" \
   "IMAGE_VIEW_ON is a wake"
 
@@ -108,8 +120,8 @@ is "$(printf '%s\n' "$got" | grep -c 'button/mute/press')" "1" \
 
 echo "the two engines agree"
 
-# The point of having two backends is that they do the same thing. These
-# are the same four events in each tool's own words.
+# The point of having two backends is that they do the same thing. This
+# is the same event, one volume up, in each tool's own words.
 CURL_LOG="$(mktemp)"; export CURL_LOG
 parse_cec_client > /dev/null <<< "TRAFFIC: >> 45:44:41"
 wait
