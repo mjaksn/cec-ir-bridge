@@ -8,6 +8,52 @@ The release workflow lifts the section matching a pushed tag out of this file
 and publishes it as the release notes, so a version with no section here does
 not get a release page.
 
+## [0.1.4] - 2026-10-25
+
+Mostly documentation, with one installer fix. The bridge and the unit behave
+exactly as they did in 0.1.3, apart from one more sentence in `--help`. The
+example config's comments on endpoint paths and on the power paths are new, but
+an existing `/etc/cec-ir-bridge.conf` keeps its own comments on a re-install.
+
+### Added
+
+- **Keeping a Sony Bravia on Audio System.** A Bravia set to Audio System can
+  drop back to its built-in speakers, after which volume presses stop reaching
+  the bridge and the journal goes quiet. The README gives the remote code that
+  switches the output back, which has shown no visible effect when the TV is
+  already on Audio System, when to send it, and two ways to: over the network
+  to the TV's IP control interface, or as infrared from the ESP32.
+- **A starting ESPHome config**, `esphome/ir-blaster.yaml`, with its buttons
+  named to match the default paths, placeholder codes and a receiver for
+  learning the soundbar's. It is flashed from a desktop, so it is not in the
+  tarball; the README links to it.
+- **The README says how ESPHome names a button in its URL.** ESPHome 2026.7
+  dropped the id form of its button URLs and addresses a button only by its
+  name. The default paths keep working on every version when the buttons are
+  named `volume_up`, `volume_down` and `mute`; the README and the example config
+  say so, along with the `%20` form for other names and what a `404` from the
+  hand-made POST means. The defaults themselves are unchanged.
+- **`--help` and the README name `CEC_IR_BRIDGE_CONF`**, the way to point the
+  bridge at another config file.
+
+### Fixed
+
+- **A setting appended on re-install now brings its comment.** Only a setting
+  that came first under a shared comment used to carry it; one further down,
+  such as `POWER_ON_PATH` below `POWER_OFF_PATH`, was appended bare.
+- **The README no longer suggests `ENGINE="cec-ctl"` for a missing
+  `/dev/cec0`.** Neither engine can work without it; `cec-ctl` is for a libcec
+  that cannot use the adapter even though `/dev/cec0` exists.
+- **The README says `POWER_ON_PATH` may never fire.** Image View On and Text
+  View On normally go to the TV alone, so check with `cec-ctl --monitor` that
+  they reach the Pi before relying on it.
+- **The README says a re-install keeps the configured `ESP32_BASE_URL`** and
+  ignores a new one on the command line, so a moved ESP32 means editing the
+  config.
+- **The README has the optical cable running from the TV.** The text and the
+  diagram had it running from the Apple TV. Audio reaches the TV over HDMI and
+  leaves it on the TV's digital audio output.
+
 ## [0.1.3] - 2026-10-13
 
 Documentation only, as 0.1.1 was. The bridge, the installer and the unit behave
@@ -150,6 +196,7 @@ rather than a clone of whatever `main` happened to be.
   that a recorded capture can be piped through them, which is what the tests
   do.
 
+[0.1.4]: https://github.com/mjaksn/cec-ir-bridge/releases/tag/v0.1.4
 [0.1.3]: https://github.com/mjaksn/cec-ir-bridge/releases/tag/v0.1.3
 [0.1.2]: https://github.com/mjaksn/cec-ir-bridge/releases/tag/v0.1.2
 [0.1.1]: https://github.com/mjaksn/cec-ir-bridge/releases/tag/v0.1.1
